@@ -145,25 +145,39 @@ class Blob(object):
         if dtype is None:
             dtype = cls.dtype
             
-        return '''typedef struct {
+        definition = \
+'''
+typedef struct {
 %(fields)s
-} %(cname)s;''' % {'fields': '\n'.join(['\t%(type)s %(name)s;' % {'name': field, 'type': dtype_to_ctype(dtype.fields[field][0])} for field in dtype.names]), 
-                   'cname': cls.get_cname('')}
+} %(cname)s;
+''' % {'fields': '\n'.join(['\t%(type)s %(name)s;' % {'name': field, 'type': dtype_to_ctype(dtype.fields[field][0])}
+                            for field in dtype.names]), 
+       'cname': cls.get_cname('')
+}
+        return definition.strip()
 
     
     @classmethod
     def get_csizeof(cls, address_space_qualifier):
         """Creates a c99 sizeof method."""
         
+        definition = 'unsigned long %(function_name)s(%(fullcname)s* blob)' % {
+            'function_name': cls.get_sizeof_cname(address_space_qualifier),
+            'fullcname': cls.get_cname(address_space_qualifier)
+        } 
+        
         if hasattr(cls, 'dtype') and isinstance(cls.dtype, numpy.dtype):
             # flat structs or primitive types can use sizeof(type)
-            return \
-'''size_t %(function_name)s(%(fullcname)s* blob)
+            declaration = \
+'''
+%(definition)s
 {
     return sizeof(%(cname)s);
-};''' % {'function_name': cls.get_sizeof_cname(address_space_qualifier),
-        'fullcname': cls.get_cname(address_space_qualifier),
-        'cname': cls.get_cname('')}
+};
+''' % {
+    'definition': definition,
+    'cname': cls.get_cname('')
+}
 
         else:
             # complex types must calculate the size by the size of its components.
@@ -191,22 +205,27 @@ class Blob(object):
                 arguments.append('&%s' % field_variable)
                 lines.append('size += %s;' % sizeof_call)
                 
-            lines.insert(0, '%s(%s);' % (cls.get_explode_cname(address_space_qualifier), ', '.join(arguments)))
+            lines.insert(0, '%s(%s);' % (cls.get_deserialize_cname(address_space_qualifier), ', '.join(arguments)))
             
             # prepend the variable declarations to the source code                
             variables.extend(lines)
             lines = variables
             
             # fill the function template
-            return \
-'''size_t %(function_name)s(%(cname)s* blob)
+            declaration = \
+'''
+%(definition)s
 {
-    size_t size = 0;
+    unsigned long size = 0;
 %(lines)s
     return size;
-}''' % {'function_name': cls.get_sizeof_cname(address_space_qualifier),
-        'cname': cls.get_cname(address_space_qualifier), 
-        'lines': '\n'.join(['\t' + line for line in lines])}
+}
+''' % {
+    'definition': definition.strip(),
+    'cname': cls.get_cname(address_space_qualifier), 
+    'lines': '\n'.join(['\t' + line for line in lines])
+}
+        return definition.strip() + ';', declaration.strip()
 
     @classmethod
     def get_sizeof_cname(cls, address_space_qualifier):
@@ -215,10 +234,11 @@ class Blob(object):
         return 'sizeof_%s_%s' % (address_space_qualifier[0], cls.get_cname(''))
 
     @classmethod
-    def get_cexploder(cls, address_space_qualifier):
-        """Returns the c99 exploder function declaration, which separates the components of a flat type."""
+    def get_cdeserializer(cls, address_space_qualifier):
+        """Returns the c99 deserializer function declaration, which separates the components of a flat type."""
         
         arguments = ['%s* blob' % cls.get_cname(address_space_qualifier)]
+        declarations = []
         lines = []
         previous_field_offset, previous_field_space = 0, 0
         
@@ -226,12 +246,15 @@ class Blob(object):
         for field, dtype in cls.subtypes:
             # format
             lines.append(    '')
-            lines.append(    '// cast of %s' % field)
+            lines.append(    '/* cast of %s */' % field)
             
             # used variable names
             field_variable = '%s_instance' % field
             field_offset =   '%s_offset' % field
             field_space =    '%s_space' % field
+            
+            declarations.append('unsigned long %s;' % field_offset)
+            declarations.append('unsigned long %s;' % field_space)
             
             # add sizeof call of component
             cname = None
@@ -247,30 +270,35 @@ class Blob(object):
             arguments.append('%s** %s' % (cname, field_variable))
             
             # determine offset of component
-            lines.append('size_t %s = %s + %s;' % (field_offset, previous_field_offset, previous_field_space))
+            lines.append('%s = %s + %s;' % (field_offset, previous_field_offset, previous_field_space))
             
             # set and cast component reference 
             lines.append('*%s = (%s*)(((%s char*)blob) + %s);' % (field_variable, cname, address_space_qualifier, field_offset))
             
             # determine size of component
-            lines.append('size_t %s = %s;' % (field_space, sizeof_call))
+            lines.append('%s = %s;' % (field_space, sizeof_call))
             
             previous_field_space = field_space
             previous_field_offset = field_offset
         
         lines = ['\t' + line for line in lines]
         
+        definition = 'void %s(%s)' % (cls.get_deserialize_cname(address_space_qualifier), ', '.join(arguments))
         # fill function template
-        lines.insert(0, 'void %s(%s)' % (cls.get_explode_cname(address_space_qualifier), ', '.join(arguments)))
+        lines.insert(0, definition)
         lines.insert(1, '{')
+        for index, line in enumerate(declarations):
+            lines.insert(2 + index, '\t' + line) 
         lines.append('}')
-        return '\n'.join(lines)
+        declaration = '\n'.join(lines)
+        
+        return definition.strip() + ';', declaration
     
     @classmethod
-    def get_explode_cname(cls, address_space_qualifier):
-        """Returns the function name of the c99 exploder function."""
+    def get_deserialize_cname(cls, address_space_qualifier):
+        """Returns the function name of the c99 deserializer function."""
         
-        return 'explode_%s_%s' % (address_space_qualifier[0], cls.get_cname(''))
+        return 'deserialize_%s_%s' % (address_space_qualifier[0], cls.get_cname(''))
     
     @classmethod
     def get_init_ctype(cls, *args, **kwargs):
@@ -291,13 +319,20 @@ class Blob(object):
             lines.append('blob->%s = %d;' % (field, args[index]))
         
         # fill the function template
-        return \
-'''void %(function_name)s(%(type)s* blob)
+        definition = 'void %(function_name)s(%(type)s* blob)' % {
+            'function_name': cls.get_init_cname(kwargs['address_space_qualifier']),
+            'type': cname
+        }
+        declaration = \
+'''
+%(definition)s
 {
 %(content)s
-};''' % {'function_name': cls.get_init_cname(kwargs['address_space_qualifier']),
-        'type': cname,
-        'content': '\n'.join(['\t' + line for line in lines])}
+};''' % {
+            'definition': definition.strip(),
+            'content': '\n'.join(['\t' + line for line in lines])
+        }
+        return definition.strip() + ';', declaration
     
     @classmethod
     def get_init_cname(cls, address_space_qualifier):
@@ -458,7 +493,7 @@ class BlobArray(Blob):
     
     A BlobArray is an abstract class that encapsulates an array of Blob objects.
     The number of elements must be known when the object is created.
-    It generates a (dummy) c99 struct declaration as well as a exploder function, which returns a reference to the array.
+    It generates a (dummy) c99 struct declaration as well as a deserializer function, which returns a reference to the array.
     
     The subclass can override the following class attributes:
     
@@ -503,15 +538,18 @@ class BlobArray(Blob):
 } %(cname)s;''' % {'child_cname': cls.child_type.get_cname(''), 'cname': cls.get_cname('')}
 
     @classmethod
-    def get_cexploder(cls, address_space_qualifier):
-        """Returns the c99 exploder function."""
-        return \
-'''void %(function_name)s(%(cname)s* list, %(child_cname)s** array)
-{
+    def get_cdeserializer(cls, address_space_qualifier):
+        """Returns the c99 deserializer function."""
+        definition = 'void %(function_name)s(%(cname)s* list, %(child_cname)s** array)' % {
+            'function_name': cls.get_deserialize_cname(address_space_qualifier),
+            'child_cname': cls.child_type.get_cname(address_space_qualifier), 
+            'cname': cls.get_cname(address_space_qualifier)}
+        declaration = \
+'''
+%s {
     array[0] = &(list->first_item);
-};''' % {'function_name': cls.get_explode_cname(address_space_qualifier),
-        'child_cname': cls.child_type.get_cname(address_space_qualifier), 
-        'cname': cls.get_cname(address_space_qualifier)}
+};''' % definition
+        return definition + ';', declaration
 
     @classmethod
     def sizeof_dtype(cls, item_count, child_dtype=None):
@@ -526,16 +564,24 @@ class BlobArray(Blob):
     
     @classmethod
     def get_csizeof(cls, address_space_qualifier):
-        return \
-'''size_t %(function_name)s(%(cname)s* list)
+        definition = 'unsigned long %(function_name)s(%(cname)s* list)' % {
+            'function_name': cls.get_sizeof_cname(address_space_qualifier),
+            'cname': cls.get_cname(address_space_qualifier)
+        }
+        declaration = \
+'''
+%(definition)s
 {
-    size_t count_space = sizeof(int); // item_count
-    size_t items_space = list->item_count * %(child_sizeof_cname)s(&(list->first_item));
+    unsigned long count_space = sizeof(int); /* item_count */
+    unsigned long items_space = list->item_count * %(child_sizeof_cname)s(&(list->first_item));
     return count_space + items_space;
-};''' % {'function_name': cls.get_sizeof_cname(address_space_qualifier),
-         'child_sizeof_cname': cls.child_type.get_sizeof_cname(address_space_qualifier),
-         'cname': cls.get_cname(address_space_qualifier), 
-         'child_cname': cls.child_type.get_cname(address_space_qualifier)}
+};
+''' % {
+            'definition': definition.strip(),
+            'child_sizeof_cname': cls.child_type.get_sizeof_cname(address_space_qualifier),
+            'child_cname': cls.child_type.get_cname(address_space_qualifier)
+        }
+        return definition.strip() + ';', declaration.strip()
     
     @classmethod
     def get_item_blob(cls, blob, index, child_dtype = None):
@@ -599,18 +645,15 @@ class BlobInterface(object):
             device=None,
             required_constant_blob_types = [],
             required_global_blob_types = [],
-            header_head = ''):
+            header_header = '',
+            header_footer = ''):
         if device is None:
             device = opencl.create_some_context(False).get_info(opencl.context_info.DEVICES)[0]
-            
-        self.header_code = '''
-/* header generated by %(filename)s */
 
-%(header_head)s
-
-''' % {'filename': __file__, 'header_head': header_head}
-
-        declarations = []
+        self.type_definitions = []
+        self.function_definitions = []
+        self.function_declarations = []
+        
         for address_space_qualifier, required_blob_types in [('constant', required_constant_blob_types), ('global', required_global_blob_types)]:
             
             # check dependencies             
@@ -626,20 +669,26 @@ class BlobInterface(object):
                 else:
                     generated_types.append(blob_type)
                     
-                declarations.append('// definition of %s' % blob_type.__name__)
+                #declarations.append('/* definition of %s */' % blob_type.__name__)
                 if issubclass(blob_type, BlobArray):
-                    # The type is an array: add dummpy type and exploder.
+                    # The type is an array: add dummpy type and deserializer.
                     try:
                         type_declaration = blob_type.get_ctype()
-                        if type_declaration not in declarations:
-                            declarations.append(type_declaration)
-                        declarations.append(blob_type.get_cexploder(address_space_qualifier))
-                        declarations.append(blob_type.get_csizeof(address_space_qualifier))
+                        if type_declaration not in self.type_definitions:
+                            self.type_definitions.append(type_declaration)
+                            
+                        definition, declaration = blob_type.get_cdeserializer(address_space_qualifier)
+                        self.function_definitions.append(definition)
+                        self.function_declarations.append(declaration)
+                        
+                        definition, declaration = blob_type.get_csizeof(address_space_qualifier)
+                        self.function_definitions.append(definition)
+                        self.function_declarations.append(declaration)
                     except:
                         raise
                     
                 elif not hasattr(blob_type, 'dtype'):
-                    # The type has components of variable length: add dummy and exploder.
+                    # The type has components of variable length: add dummy and deserializer.
                     try:
                         # try to generate a dummy .... hehe ... look at this dirty approach
                         type_declaration = ''
@@ -658,25 +707,46 @@ class BlobInterface(object):
                             logging.warn('unable to generate dummy ctype %s' % blob_type.get_cname(address_space_qualifier))
                             raise
                         else:
-                            if type_declaration not in declarations:
-                                declarations.append(type_declaration)
+                            if type_declaration not in self.type_definitions:
+                                self.type_definitions.append(type_declaration)
                             
                             # add a dummy initializer function
                             try:
-                                declarations.append(blob_type.get_init_ctype(*create_dtype_params, address_space_qualifier=address_space_qualifier))
+                                definition, declaration = blob_type.get_init_ctype(*create_dtype_params, address_space_qualifier=address_space_qualifier)
+                                self.function_definitions.append(definition)
+                                self.function_declarations.append(declaration)
                             except:
                                 logging.warn('unable to generate dummy initializer ctype %s with %d params' % (blob_type.get_cname(address_space_qualifier), param_count))
                                 raise
                     except:
                         raise
+                    
+                    definition, declaration = blob_type.get_cdeserializer(address_space_qualifier)
+                    self.function_definitions.append(definition)
+                    self.function_declarations.append(declaration)
                         
-                    declarations.append(blob_type.get_cexploder(address_space_qualifier))
-                    declarations.append(blob_type.get_csizeof(address_space_qualifier))
+                    definition, declaration = blob_type.get_csizeof(address_space_qualifier)
+                    self.function_definitions.append(definition)
+                    self.function_declarations.append(declaration)
                 
                 else:
                     # The type has a constant size ... add the c type declaration.
                     type_declaration = implode_floatn(blob_type.get_ctype())
-                    if type_declaration not in declarations:
-                        declarations.append(type_declaration)
-                    declarations.append(blob_type.get_csizeof(address_space_qualifier))
-        self.header_code += '\n\n'.join(map(str.strip, declarations))
+                    if type_declaration not in self.type_definitions:
+                        self.type_definitions.append(type_declaration)
+                        
+                    definition, declaration = blob_type.get_csizeof(address_space_qualifier)
+                    self.function_definitions.append(definition)
+                    self.function_declarations.append(declaration)
+        
+        self.header_code = '\n\n'.join([
+            '/* header generated by %s */' % __file__,
+            header_header,
+            '\n\n'.join(map(str.strip, self.type_definitions)),
+            '\n\n'.join(map(str.strip, self.function_definitions)),
+            header_footer
+        ])
+        self.source_code = '\n\n'.join([
+            '/* source generated by %s */' % __file__,
+            '\n\n'.join(map(str.strip, self.function_declarations))
+        ])
