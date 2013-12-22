@@ -1,7 +1,8 @@
 blob_types
 ==========
 
-Python package, that converts JSON structures to (OpenCL)C-structs an generates required deserializer functions.
+A Python lib, which parses a JSON structure into full featured Python objects.
+It enables to pass them to a OpenCL devices and to generate required C structures, initialization, serialization and deserialization functions.
 
 Contribute
 ----------
