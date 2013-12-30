@@ -149,8 +149,12 @@ typedef struct {
         lines = []
         previous_field_offset, previous_field_space = 0, 0
 
+        last_field = self.blob_type.subtypes[-1][0]
+
         # iterate over all subtypes/components
         for field, dtype in self.blob_type.subtypes:
+            is_last_field = field == last_field
+
             # format
             lines.append(    '')
             lines.append(    '/* cast of %s */' % field)
@@ -158,10 +162,12 @@ typedef struct {
             # used variable names
             field_variable = '%s_instance' % field
             field_offset =   '%s_offset' % field
-            field_space =    '%s_space' % field
+            if not is_last_field:
+                field_space =    '%s_space' % field
 
             declarations.append('unsigned long %s;' % field_offset)
-            declarations.append('unsigned long %s;' % field_space)
+            if not is_last_field:
+                declarations.append('unsigned long %s;' % field_space)
 
             # add sizeof call of component
             if numpy.issctype(dtype):
@@ -181,8 +187,9 @@ typedef struct {
             # set and cast component reference
             lines.append('*%s = (%s*)(((%s char*)blob) + %s);' % (field_variable, cname, address_space_qualifier, field_offset))
 
-            # determine size of component
-            lines.append('%s = %s;' % (field_space, sizeof_call))
+            if not is_last_field:
+                # determine size of component
+                lines.append('%s = %s;' % (field_space, sizeof_call))
 
             previous_field_space = field_space
             previous_field_offset = field_offset

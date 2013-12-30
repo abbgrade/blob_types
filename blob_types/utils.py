@@ -60,19 +60,55 @@ def flat_struct(struct):
             result[camel_case_to_underscore(key)] = value
     return result
 
+vector_fields = [
+    ('x','y','z'),
+    ('_0', '_1', '_2')
+]
+
 def implode_floatn(struct_source):
     """Convert vector types."""
     lines = []
     for line in struct_source.split('\n'):
         parts = line.split()
-        if len(parts) == 2 and parts[0] == 'float' and parts[1].endswith('_y;') and lines[-1][:-2] == line[:-2]:
-            lines[-1] = line.replace('float ', 'float2 ')[:-3] + ';'
-        else:
+        replaced = False
+        if len(parts) == 2 and parts[0].startswith('float'):
+            type_, field = parts
+            previous_parts = lines[-1].split()
+            if len(previous_parts) == 2:
+                previous_type, previous_field = previous_parts
+
+                for vector_field in vector_fields:
+                    if not replaced:
+                        for previous_index, char in enumerate(vector_field):
+                            if not replaced:
+
+                                index = str(previous_index + 1)
+                                if previous_index < 2:
+                                    previous_index = ''
+                                else:
+                                    previous_index = str(previous_index)
+
+                                suffix = '_%s;' % char
+                                new_type = 'float%s' % index
+
+                                previous_prefix = previous_field[:-len(suffix)]
+                                prefix = field[:-len(suffix)]
+
+                                if field.endswith(suffix) and previous_prefix == prefix or (previous_index and previous_field[:-1] == prefix):
+                                    new_line = line.replace('float', new_type)[:-len(suffix)] + ';'
+                                    lines[-1] = new_line
+                                    replaced = True
+
+        if not replaced:
             lines.append(line)
     return '\n'.join(lines)
 
 
 def get_blob_index(dtype, name):
+
+    assert dtype
+    assert dtype.names
+
     for index, field_name in enumerate(dtype.names):
         if field_name == name:
             return index

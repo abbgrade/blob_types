@@ -18,6 +18,8 @@ class Blob(object):
         cname       # the name of the c99 structure
         dtype       # the type definition
         subtypes    # the class definition of nested Blob-types
+
+    todo: use __metaclass__
         
     """
     
@@ -40,9 +42,11 @@ class Blob(object):
         for sub_name, sub_dtype in subtypes:
             if type(sub_dtype) is type:
                 dtype_components.append((sub_name, sub_dtype))
-            else:
+            elif type(sub_dtype) is numpy.dtype:
                 for name, dtype in sub_dtype.descr:
                     dtype_components.append(('%s_%s' % (sub_name, name), dtype))
+            else:
+                raise NotImplementedError('flat dtype of %s : %s : %s' % (sub_name, type(sub_dtype), sub_dtype))
         return numpy.dtype(dtype_components)
     
     @classmethod
@@ -52,7 +56,11 @@ class Blob(object):
         assert blob.shape == (), 'the blob must be plain'
         
         self = cls(blob)
-        self._init_blob_from_struct(flat_struct(struct), blob)
+
+        assert hasattr(self, '_init_blob_from_struct'), '%s requires an implementation of _init_blob_from_struct' % cls
+
+        struct = flat_struct(struct)
+        self._init_blob_from_struct(struct, blob)
         return self
 
     @classmethod
@@ -142,26 +150,33 @@ class Blob(object):
     def _init_blob_from_struct(self, struct, blob):
         """Copy all elements of a struct into the blob."""
         assert blob.dtype == self.dtype
+
+        struct = flat_struct(struct)
         
         # copy elements 
         for name, value in struct.items():
             name = camel_case_to_underscore(name)
+
+            assert name in self._blob_property_names, 'unknown key %s in %s' % (name, self)
+
             try:
                 self.__setattr__(name, value)
             except:
-                logging.warn('unknown key %s in %s' % (name, self))
                 raise
         
         # assert that all elements are initialized
         for name, _name in map(lambda name_: (name_, underscore_to_camel_case(name_)), self._blob_property_names):
-            assert (name in struct.keys() or _name in struct.keys()), 'uninitialized key %s/%s in %s' % (name, _name, type(self))
+            assert name in struct.keys() or _name in struct.keys(), 'uninitialized key %s/%s in %s' % (name, _name, type(self))
         
     def _data_property_type(self, name):
         """Get a function that casts the blob element to the correct python type."""
         property_index = self._blob_property_names.index(name)
         byte_offset = self._blob_property_offsets[property_index]
-        return {'<f4': float,
-                '<i4': int}[byte_offset]
+
+        def cast_bool(value):
+            return bool(value > 0)
+
+        return {'<f4': float, '<i4': int, '|i1': cast_bool}[byte_offset]
         
     def __setattr__(self, name, value):
         """Set the attribute 'name'.
@@ -234,6 +249,8 @@ class BlobArray(Blob):
         (COUNT_FIELD_NAME,      numpy.int32)
     ]
 
+    _dtypes = {} # map of known types for reuse and save memory
+
     @classmethod
     def create_dtype(cls, capacity, child_dtype=None):
         """Creates the dtype based on the number of items."""
@@ -241,17 +258,28 @@ class BlobArray(Blob):
         if child_dtype is None:
             child_dtype = cls.child_type.dtype
 
+        dtype_params = (capacity, child_dtype)
+
+        if dtype_params in cls._dtypes:
+            return cls._dtypes[dtype_params]
+
         assert child_dtype.names[0] == 'global_index', 'child_type of %s has no global_index field' % cls
         assert isinstance(capacity, int) or isinstance(capacity, numpy.int32), 'expected int instead of %s' % type(capacity)
         capacity = int(capacity)
         
         dtype_components = cls.dtype_static_components[:]
-        
-        for index in range(capacity):
+
+        assert capacity < 1000000
+
+        for index in xrange(capacity):
             for name, dtype in child_dtype.descr:
                 dtype_components.append(('item_%d_%s' % (index, name), dtype))
             
-        return numpy.dtype(dtype_components)
+        dtype = numpy.dtype(dtype_components)
+
+        cls._dtypes[dtype_params] = dtype
+
+        return dtype
     
     @classmethod
     def get_subtypes(cls):
@@ -327,7 +355,7 @@ class BlobArray(Blob):
 
     @classmethod
     def from_blob(cls, blob):
-        capacity = blob.getfield(numpy.dtype(int), offset=0)
+        capacity = blob.getfield(numpy.dtype(int), offset=0) # 0 because capacity is the first field
 
         if isinstance(capacity, numpy.ndarray):
             capacity = capacity[0]
@@ -345,7 +373,7 @@ class BlobArray(Blob):
 
         if items is None:
             items = []
-        while len(items) < capacity: #todo remove this later
+        while len(items) < capacity: #todo: remove this later
             items.append(None)
 
         if capacity is None:
