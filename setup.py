@@ -1,4 +1,3 @@
-
 from distutils.core import setup
 
 from blob_types import __version__, __author__, __email__, __license__

@@ -6,6 +6,7 @@ from pyopencl.compyte.dtypes import dtype_to_ctype
 from blob_types.types import Blob, BlobArray
 from blob_types.utils import camel_case_to_underscore, implode_floatn
 
+
 def walk_dependencies(dependencies):
     """Determine the dependencies recursively."""
 
@@ -24,7 +25,6 @@ def walk_dependencies(dependencies):
 
 
 class BlobInterface(object):
-
     def __init__(self, blob_type):
         assert issubclass(blob_type, Blob)
         self.blob_type = blob_type
@@ -65,9 +65,9 @@ class BlobInterface(object):
 typedef struct {
 %(fields)s
 } %(cname)s;
-''' % {'fields': '\n'.join(['\t%(type)s %(name)s;' % {'name': field, 'type': dtype_to_ctype(dtype.fields[field][0])}
-                            for field in dtype.names]),
-       'cname': self.get_cname('')
+''' % {
+    'fields': '\n'.join(['\t%(type)s %(name)s;' % {'name': field, 'type': dtype_to_ctype(dtype.fields[field][0])} for field in dtype.names]),
+    'cname': self.get_cname('')
 }
         return definition.strip()
 
@@ -112,8 +112,10 @@ typedef struct {
                 else:
                     # determine the size of the complex type
                     assert issubclass(dtype, Blob), 'unexpected type %s %s' % (type(dtype), dtype)
-                    variables.append('%s* %s;' % (BlobLib.get_interface(dtype).get_cname(address_space_qualifier), field_variable))
-                    sizeof_call = '%s(%s)' % (BlobLib.get_interface(dtype).get_sizeof_cname(address_space_qualifier), field_variable)
+                    variables.append(
+                        '%s* %s;' % (BlobLib.get_interface(dtype).get_cname(address_space_qualifier), field_variable))
+                    sizeof_call = '%s(%s)' % (
+                    BlobLib.get_interface(dtype).get_sizeof_cname(address_space_qualifier), field_variable)
 
                 # save which arguments and lines are required to determine the total size
                 arguments.append('&%s' % field_variable)
@@ -156,14 +158,14 @@ typedef struct {
             is_last_field = field == last_field
 
             # format
-            lines.append(    '')
-            lines.append(    '/* cast of %s */' % field)
+            lines.append('')
+            lines.append('/* cast of %s */' % field)
 
             # used variable names
             field_variable = '%s_instance' % field
-            field_offset =   '%s_offset' % field
+            field_offset = '%s_offset' % field
             if not is_last_field:
-                field_space =    '%s_space' % field
+                field_space = '%s_space' % field
 
             declarations.append('unsigned long %s;' % field_offset)
             if not is_last_field:
@@ -176,7 +178,8 @@ typedef struct {
             else:
                 assert issubclass(dtype, Blob), 'unexpected type %s %s' % (type(dtype), dtype)
                 cname = BlobLib.get_interface(dtype).get_cname(address_space_qualifier)
-                sizeof_call = '%s(*%s)' % (BlobLib.get_interface(dtype).get_sizeof_cname(address_space_qualifier), field_variable)
+                sizeof_call = '%s(*%s)' % (
+                BlobLib.get_interface(dtype).get_sizeof_cname(address_space_qualifier), field_variable)
 
             # add component reference to arguments (for results)
             arguments.append('%s** %s' % (cname, field_variable))
@@ -185,7 +188,8 @@ typedef struct {
             lines.append('%s = %s + %s;' % (field_offset, previous_field_offset, previous_field_space))
 
             # set and cast component reference
-            lines.append('*%s = (%s*)(((%s char*)blob) + %s);' % (field_variable, cname, address_space_qualifier, field_offset))
+            lines.append(
+                '*%s = (%s*)(((%s char*)blob) + %s);' % (field_variable, cname, address_space_qualifier, field_offset))
 
             if not is_last_field:
                 # determine size of component
@@ -220,7 +224,7 @@ typedef struct {
 
         # add initialization of all components, which contain a _item_count component
         lines = []
-        dtype = self.blob_type.create_dtype(*args)
+        dtype = self.blob_type.create_dtype(dtype_params=self.blob_type.get_dummy_dtype_params())
         for index, field in enumerate(filter(lambda field_: field_.endswith('_item_count'), dtype.names)):
             lines.append('blob->%s = %d;' % (field, args[index]))
 
@@ -235,13 +239,13 @@ typedef struct {
 {
 %(content)s
 };''' % {
-            'definition': definition.strip(),
-            'content': '\n'.join(['\t' + line for line in lines])
-        }
+    'definition': definition.strip(),
+    'content': '\n'.join(['\t' + line for line in lines])
+}
         return definition.strip() + ';', declaration
 
-class BlobArrayInterface(BlobInterface):
 
+class BlobArrayInterface(BlobInterface):
     def __init__(self, blob_type):
         assert issubclass(blob_type, BlobArray)
         BlobInterface.__init__(self, blob_type)
@@ -253,7 +257,10 @@ class BlobArrayInterface(BlobInterface):
 '''typedef struct {
     int item_count;
     %(child_cname)s first_item;
-} %(cname)s;''' % {'child_cname': BlobLib.get_interface(self.blob_type.child_type).get_cname(''), 'cname': self.get_cname('')}
+} %(cname)s;''' % {
+    'child_cname': BlobLib.get_interface(self.blob_type.child_type).get_cname(''),
+    'cname': self.get_cname('')
+}
 
     def get_csizeof(self, address_space_qualifier):
         definition = 'unsigned long %(function_name)s(%(cname)s* list)' % {
@@ -269,10 +276,11 @@ class BlobArrayInterface(BlobInterface):
     return count_space + items_space;
 };
 ''' % {
-            'definition': definition.strip(),
-            'child_sizeof_cname': BlobLib.get_interface(self.blob_type.child_type).get_sizeof_cname(address_space_qualifier),
-            'child_cname': BlobLib.get_interface(self.blob_type.child_type).get_cname(address_space_qualifier)
-        }
+    'definition': definition.strip(),
+    'child_sizeof_cname': BlobLib.get_interface(self.blob_type.child_type).get_sizeof_cname(
+        address_space_qualifier),
+    'child_cname': BlobLib.get_interface(self.blob_type.child_type).get_cname(address_space_qualifier)
+}
         return definition.strip() + ';', declaration.strip()
 
     def get_cdeserializer(self, address_space_qualifier):
@@ -290,7 +298,6 @@ class BlobArrayInterface(BlobInterface):
 
 
 class BlobLib(object):
-
     """Generates C-code which allows to work with the serialized blob data."""
 
     @classmethod
@@ -302,11 +309,11 @@ class BlobLib(object):
             return BlobInterface(blob_type)
 
     def __init__(self,
-            device=None,
-            required_constant_blob_types = None,
-            required_global_blob_types = None,
-            header_header = '',
-            header_footer = ''):
+                 device=None,
+                 required_constant_blob_types=None,
+                 required_global_blob_types=None,
+                 header_header='',
+                 header_footer=''):
 
         if device is None:
             # noinspection PyUnusedLocal
@@ -322,11 +329,11 @@ class BlobLib(object):
         self.function_definitions = []
         self.function_declarations = []
 
-        for address_space_qualifier, required_blob_types in [('constant', required_constant_blob_types), ('global', required_global_blob_types)]:
+        for address_space_qualifier, required_blob_types in [('constant', required_constant_blob_types),
+                                                             ('global', required_global_blob_types)]:
 
             # check dependencies
             blob_types = walk_dependencies(required_blob_types)
-            #logging.debug('required %s types: %s' % (address_space_qualifier, ', '.join([blob_type.get_cname('') for blob_type in blob_types])))
 
             # generate header
             generated_types = []
@@ -339,9 +346,8 @@ class BlobLib(object):
 
                 blob_type_interface = BlobLib.get_interface(blob_type)
 
-                #declarations.append('/* definition of %s */' % blob_type.__name__)
                 if issubclass(blob_type, BlobArray):
-                    # The type is an array: add dummpy type and deserializer.
+                    # The type is an array: add dummy type and deserializer.
 
                     try:
                         type_declaration = blob_type_interface.get_ctype()
@@ -362,22 +368,15 @@ class BlobLib(object):
                     # The type has components of variable length: add dummy and deserializer.
                     try:
                         # try to generate a dummy .... hehe ... look at this dirty approach
-                        type_declaration = ''
                         create_dtype_params, param_count = [], 0
-                        for param_count in range(25): # try functions with up to 25 params
-                            create_dtype_params = [1]*param_count
-                            # noinspection PyBroadException
-                            try:
-                                dtype = blob_type.create_dtype(*create_dtype_params)
-                            except Exception:
-                                continue
-                            else:
-                                type_declaration = implode_floatn(blob_type_interface.get_ctype(dtype=dtype))
-                                break
+
+                        dtype = blob_type.create_dtype(dtype_params=blob_type.get_dummy_dtype_params())
+                        type_declaration = implode_floatn(blob_type_interface.get_ctype(dtype=dtype))
 
                         if type_declaration == '':
                             # check if the dummy creation was successful
-                            logging.warn('unable to generate dummy ctype %s' % blob_type_interface.get_cname(address_space_qualifier))
+                            logging.warn('unable to generate dummy ctype %s' % blob_type_interface.get_cname(
+                                address_space_qualifier))
                             raise
                         else:
                             if type_declaration not in self.type_definitions:
@@ -385,11 +384,13 @@ class BlobLib(object):
 
                             # add a dummy initializer function
                             try:
-                                definition, declaration = blob_type_interface.get_init_ctype(*create_dtype_params, address_space_qualifier=address_space_qualifier)
+                                definition, declaration = blob_type_interface.get_init_ctype(
+                                    address_space_qualifier=address_space_qualifier)
                                 self.function_definitions.append(definition)
                                 self.function_declarations.append(declaration)
                             except:
-                                logging.warn('unable to generate dummy initializer ctype %s with %d params' % (blob_type_interface.get_cname(address_space_qualifier), param_count))
+                                logging.warn('unable to generate dummy initializer ctype %s with %d params' % (
+                                blob_type_interface.get_cname(address_space_qualifier), param_count))
                                 raise
                     except:
                         raise
