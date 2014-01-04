@@ -1,6 +1,6 @@
 __author__ = 'Steffen Kampmann'
 __email__ = 'steffen.kampmann@gmail.com'
-__version__ = '0.3'
+__version__ = '0.3.2'
 __license__ = 'GPL 2'
 
 import utils

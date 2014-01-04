@@ -134,6 +134,11 @@ def dtype_to_lines(dtype):
 def diff_dtype(a, b):
     result = ['diff(%s, %s)' % (a.name, b.name)]
 
+    assert a is not None
+    assert b is not None
+    assert a.names is not None, a
+    assert b.names is not None, b
+
     length = max(len(a), len(b))
     diff_start = None
 

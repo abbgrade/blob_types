@@ -60,13 +60,18 @@ class BlobInterface(object):
         if dtype is None:
             dtype = self.blob_type.dtype
 
+        field_definitions = []
+        for field in dtype.names:
+            field_definitions.append('\t%s %s;' % (dtype_to_ctype(dtype.fields[field][0]),  field))
+        field_definitions = '\n'.join(field_definitions)
+
         definition = \
 '''
 typedef struct {
 %(fields)s
 } %(cname)s;
 ''' % {
-    'fields': '\n'.join(['\t%(type)s %(name)s;' % {'name': field, 'type': dtype_to_ctype(dtype.fields[field][0])} for field in dtype.names]),
+    'fields': field_definitions,
     'cname': self.get_cname('')
 }
         return definition.strip()
@@ -246,6 +251,9 @@ typedef struct {
 
 
 class BlobArrayInterface(BlobInterface):
+
+    FIRST_ITEM_FIELD = 'first_item'
+
     def __init__(self, blob_type):
         assert issubclass(blob_type, BlobArray)
         BlobInterface.__init__(self, blob_type)
@@ -253,11 +261,18 @@ class BlobArrayInterface(BlobInterface):
     def get_ctype(self, dtype=None):
         """Returns the c99 struct declaration."""
 
+        field_definitions = []
+        for field, subdtype in self.blob_type.dtype_static_components:
+            field_definitions.append('\t%s %s;' % (dtype_to_ctype(subdtype),  field))
+        field_definitions = '\n'.join(field_definitions)
+
         return \
 '''typedef struct {
-    int item_count;
-    %(child_cname)s first_item;
+%(static_fields)s
+    %(child_cname)s %(first_item_field)s;
 } %(cname)s;''' % {
+    'static_fields': field_definitions,
+    'first_item_field' : self.FIRST_ITEM_FIELD,
     'child_cname': BlobLib.get_interface(self.blob_type.child_type).get_cname(''),
     'cname': self.get_cname('')
 }
@@ -267,16 +282,20 @@ class BlobArrayInterface(BlobInterface):
             'function_name': self.get_sizeof_cname(address_space_qualifier),
             'cname': self.get_cname(address_space_qualifier)
         }
+
         declaration = \
 '''
 %(definition)s
 {
-    unsigned long count_space = sizeof(int); /* item_count */
-    unsigned long items_space = list->item_count * %(child_sizeof_cname)s(&(list->first_item));
-    return count_space + items_space;
+    unsigned long static_fields_space = %(static_fields_space)s;
+    unsigned long items_space = list->%(capacity_field)s * %(child_sizeof_cname)s(&(list->%(first_item_field)s));
+    return static_fields_space + items_space;
 };
 ''' % {
     'definition': definition.strip(),
+    'static_fields_space': BlobArray.STATIC_FIELDS_BYTES,
+    'capacity_field': BlobArray.CAPACITY_FIELD,
+    'first_item_field': self.FIRST_ITEM_FIELD,
     'child_sizeof_cname': BlobLib.get_interface(self.blob_type.child_type).get_sizeof_cname(
         address_space_qualifier),
     'child_cname': BlobLib.get_interface(self.blob_type.child_type).get_cname(address_space_qualifier)
@@ -291,9 +310,12 @@ class BlobArrayInterface(BlobInterface):
             'cname': self.get_cname(address_space_qualifier)}
         declaration = \
 '''
-%s {
-    array[0] = &(list->first_item);
-};''' % definition
+%(definition)s {
+    array[0] = &(list->%(first_item_field)s);
+};''' % {
+    'definition' : definition,
+    'first_item_field' : self.FIRST_ITEM_FIELD
+}
         return definition + ';', declaration
 
 

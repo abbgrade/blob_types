@@ -145,7 +145,7 @@ class Blob(object):
     @classmethod
     @process_dtype_params
     def allocate_blob(cls, dtype_params, dtype=None):
-        blob = numpy.zeros(1, dtype)
+        blob = cls.unshape(blob=numpy.zeros(1, dtype))
         cls.empty_blob(blob=blob, dtype_params=dtype_params, dtype=dtype)
 
         return dtype, blob
@@ -177,7 +177,7 @@ class Blob(object):
 
                 assert key in dtype_params, 'assert %s in %s for subtype of %s' % (key, dtype_params, cls)
                 value = dtype_params[key]
-                assert isinstance(value, int), dtype_params
+                assert isinstance(value, int) or isinstance(value, numpy.int32), '%s should be an integer instead of %s' % (value, type(value))
 
                 subtype_params[subtype_param_key] = value
 
@@ -291,10 +291,12 @@ class Blob(object):
 
         self = cls(blob)
 
-        assert hasattr(self, '_init_blob_from_struct'), '%s requires an implementation of _init_blob_from_struct' % cls
+        try:
+            assert hasattr(self, '_init_blob_from_struct'), '%s requires an implementation of _init_blob_from_struct' % cls
+            self._init_blob_from_struct(struct=flat_struct(struct), blob=blob)
+        except:
+            raise
 
-        struct = flat_struct(struct)
-        self._init_blob_from_struct(struct, blob)
         return self
 
     @classmethod
@@ -348,7 +350,9 @@ class Blob(object):
     def from_blob(cls, blob):
 
         dtype_params = cls.get_dtype_params_from_blob(blob)
-        dtype = cls.create_dtype(dtype_params=dtype_params)
+
+        if blob.dtype.kind == 'V': # is void
+            dtype, blob = cls.cast_blob(blob=blob, offset=0, dtype_params=dtype_params)
 
         assert blob.dtype == dtype, diff_dtype(blob.dtype, dtype)
 
@@ -404,28 +408,6 @@ class Blob(object):
 
         assert self.dtype == blob.dtype, diff_dtype(self.dtype, blob.dtype)
 
-        # validate object
-        if validate_blob:
-            self.validate_blob()
-
-    def validate_blob(self):
-        """Validates the blob and dtype."""
-
-        assert self.dtype, 'a valid dtype must be available'
-
-        blob_keys = zip(*self.blob.dtype.descr)[0]
-        keys = zip(*self.dtype.descr)[0]
-
-        # compare own dtype and blob dtype 
-        for index in range(len(blob_keys)):
-            area = keys[index]
-            try:
-                area = ']['.join([keys[index - 1], keys[index], keys[index + 1]])
-            except IndexError:
-                pass
-            assert keys[index] == blob_keys[index], \
-                'blob attribute #%d: %s is unexpected at position of %s' % (index, blob_keys[index], area)
-
     def _init_blob_from_struct(self, struct, blob):
         """Copy all elements of a struct into the blob."""
         assert blob.dtype == self.dtype
@@ -445,8 +427,7 @@ class Blob(object):
 
         # assert that all elements are initialized
         for name, _name in map(lambda name_: (name_, underscore_to_camel_case(name_)), self._blob_fields_):
-            assert name in struct.keys() or _name in struct.keys(), 'uninitialized key %s/%s in %s' % (
-            name, _name, type(self))
+            assert name in struct or _name in struct,  'uninitialized key %s/%s in %s' % (name, _name, type(self))
 
     def _data_property_type(self, name):
         """Get a function that casts the blob element to the correct python type."""
@@ -471,6 +452,26 @@ class Blob(object):
                 raise
         else:
             object.__setattr__(self, name, value)
+
+    def __eq__(self, other):
+        """
+        compares the representation of each field and return false, if one differs.
+
+        repr is used to support NAN values
+        """
+        for field in self._blob_fields_:
+            if repr(getattr(self, field)) != repr(getattr(other, field)):
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __diff__(self, other):
+        for field in self._blob_fields_:
+            if repr(getattr(self, field)) != repr(getattr(other, field)):
+                return 'self.%s: %s != %s: other.%s' % (field, getattr(self, field), field, getattr(other, field))
+        return True
 
     def __getattribute__(self, name):
         """Get the value of the attribute 'name'.
@@ -525,7 +526,7 @@ class BlobArray(Blob):
 
     STATIC_FIELDS_BYTES = 8
     CAPACITY_FIELD = 'capacity'
-    COUNT_FIELD_NAME = '_count'
+    COUNT_FIELD_NAME = 'count'
     INDEX_FIELD = 'global_index'
     dtype_static_components = [
         (CAPACITY_FIELD, numpy.int32),
@@ -610,27 +611,9 @@ class BlobArray(Blob):
 
     @classmethod
     @process_dtype_params
-    def allocate_blob(cls, dtype_params, dtype=None):
-
-        child_dtype, capacity = cls.create_child_dtype(dtype_params)
-
-        #dtype = cls.create_dtype(capacity=capacity, child_dtype=child_dtype)
-        blob = numpy.zeros(1, dtype)[0]
-
-        assert blob.nbytes == cls.sizeof_dtype(dtype_params=dtype_params, dtype=dtype)
-
-        cls.empty_blob(blob=blob, dtype_params=dtype_params, dtype=dtype)
-
-        logging.debug('array allocated %d kb for %d items' % (blob.nbytes / 1024, capacity))
-        return dtype, blob
-
-    @classmethod
-    @process_dtype_params
     def empty_blob(cls, blob, dtype_params, dtype=None):
 
-        #dtype = cls.create_dtype(dtype_params)
-
-        assert blob.dtype == dtype
+        assert blob.dtype == dtype, diff_dtype(blob.dtype, dtype)
 
         child_dtype, capacity = cls.create_child_dtype(dtype_params)
 
@@ -701,6 +684,17 @@ class BlobArray(Blob):
         return key_
 
     @classmethod
+    def validate_capacity(cls, capacity):
+
+        isinstance(capacity, int), 'dtype_params must contain the integer field capacity'
+
+        if capacity <= 0:
+            raise BlobValidationException('array capacity must be positive instead of %d' % capacity)
+
+        if capacity > Blob.MAX_DTYPE_PARAM:
+            raise BlobValidationException('array capacity must smaller than 1000 instead of %d' % capacity)
+
+    @classmethod
     def get_dtype_params_from_blob(cls, blob):
 
         offset = 0
@@ -712,12 +706,7 @@ class BlobArray(Blob):
         # determine capacity
         field_index = get_blob_index(dummy_dtype, cls.CAPACITY_FIELD)
         capacity = dummy_blob[field_index]
-
-        if capacity <= 0:
-            raise BlobValidationException('array capacity must be positive instead of %d' % capacity)
-        if capacity > Blob.MAX_DTYPE_PARAM:
-            raise BlobValidationException('array capacity must smaller than 1000 instead of %d' % capacity)
-
+        cls.validate_capacity(capacity)
         dtype_params[cls.CAPACITY_FIELD] = capacity
         logging.info('%s has %d', repr(cls), capacity)
 
@@ -730,9 +719,7 @@ class BlobArray(Blob):
         return dtype_params
 
     def __init__(self, blob, dtype_params=None, dtype=None, items=None, capacity=None):
-
-        if dtype_params is None:
-            dtype_params = {}
+        cls = type(self)
 
         if items is None:
             items = []
@@ -747,12 +734,13 @@ class BlobArray(Blob):
         assert blob.shape == ()
         assert blob.nbytes > 4, 'the blob must be greater than the index variable space'
 
-        if not dtype_params:
-            dtype_params = {'capacity': capacity}
-        assert 'capacity' in dtype_params and isinstance(dtype_params['capacity'],
-                                                         int), 'dtype_params must contain the integer field capacity'
+        if dtype_params is None:
+            dtype_params = {cls.CAPACITY_FIELD: capacity}
 
-        Blob.__init__(self, blob=blob, dtype=dtype, dtype_params=dtype_params)#, blob_properties=zip(*self.dtype.descr)
+        assert cls.CAPACITY_FIELD in dtype_params
+        cls.validate_capacity(dtype_params[cls.CAPACITY_FIELD])
+
+        Blob.__init__(self, blob=blob, dtype=dtype, dtype_params=dtype_params)
 
         self._items = items
 
@@ -760,12 +748,12 @@ class BlobArray(Blob):
             self.capacity = capacity
 
         valid_item_count = len(filter(lambda item: item is not None, items))
-        if self._count == 0 and valid_item_count:
+        if self.count == 0 and valid_item_count:
             for index in range(self.capacity - 1, 0 - 1, -1):
                 if items[index] is not None:
-                    self._count = index + 1
+                    self.count = index + 1
                     break
-            logging.info('init count from item list to %d', self._count)
+            logging.info('init count from item list to %d', self.count)
         else:
             child_dtype, capacity_ = self.create_child_dtype(dtype_params)
 
@@ -778,13 +766,13 @@ class BlobArray(Blob):
                     count += 1
 
             try:
-                if self._count != count:
-                    self._count = count
+                if self.count != count:
+                    self.count = count
 
             except RuntimeError:
                 raise
 
-            logging.info('init count from blob items to %d', self._count)
+            logging.info('init count from blob items to %d', self.count)
 
     def __getitem__(self, index):
         """Returns the element at the given index."""
@@ -796,10 +784,7 @@ class BlobArray(Blob):
 
     def __len__(self):
         """Returns the number of stored elements."""
-        return self._count
-
-    def get_item_blob_(self, index):
-        return self.get_item_blob(self.blob, index)
+        return self.count
 
     def to_struct(self):
         """Returns a struct representation of all stored elements."""
