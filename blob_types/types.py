@@ -1,9 +1,7 @@
 import logging
-
 import numpy
 
-from blob_types.utils import flat_struct, camel_case_to_underscore, underscore_to_camel_case, get_blob_index, diff_dtype
-
+from utils import flat_struct, camel_case_to_underscore, underscore_to_camel_case, get_blob_index, diff_dtype, vector_fields
 
 def validate_dtype_params(function):
     def wrapper(cls, dtype_params=None, *args, **kwargs):
@@ -37,6 +35,10 @@ def process_dtype_params(function):
                     raise TypeError('%s requires argument %s' % (cls, key))
 
             if function.__name__ == 'create_dtype':
+
+                for key, value in dtype_params.items():
+                    assert value > 0, 'invalid value of %s (%d)' % (key, value)
+
                 return function(cls, *args, dtype_params=dtype_params, **kwargs)
 
             if hasattr(cls, 'subtypes') or issubclass(cls, BlobArray):
@@ -76,6 +78,7 @@ class Blob(object):
     """
 
     MAX_DTYPE_PARAM = 5000
+    PADDING_FIELD_SUFFIX = '__padding'
 
     _dtypes = {} # map of known types for reuse and save memory
 
@@ -284,6 +287,32 @@ class Blob(object):
         return numpy.dtype(dtype_components)
 
     @classmethod
+    def create_aligned_dtype(cls, subtypes):
+        dtype_components = []
+        for index, component in enumerate(subtypes):
+            sub_name, sub_dtype = component
+            is_last_of_vector = False
+
+            prefix, suffix = '_'.join(sub_name.split('_')[:-1]), sub_name.split('_')[-1]
+            for vector_field in vector_fields:
+                if suffix in vector_field:
+                    vector_index = vector_field.index(suffix)
+
+                    if vector_index == len(vector_field) - 1:
+                        is_last_of_vector = True
+                    elif index < len(subtypes) - 1 and subtypes[index + 1][0].endswith(vector_field[vector_index + 1]):
+                        is_last_of_vector = False
+                    else:
+                        is_last_of_vector = True
+
+            dtype_components.append((sub_name, sub_dtype))
+
+            if is_last_of_vector and vector_index == 2:
+                dtype_components.append(('_%s%s' % (sub_name, cls.PADDING_FIELD_SUFFIX), sub_dtype))
+
+        return numpy.dtype(dtype_components)
+
+    @classmethod
     def from_struct(cls, struct, blob):
         """Creates and initializes a object from a struct."""
 
@@ -333,12 +362,16 @@ class Blob(object):
                         dummy_dtype, dummy_blob = cls.cast_blob(blob=blob, offset=0, dtype_params=dtype_params)
                         key_field = subtype.get_field_by_param_key(key, field)
                         index = get_blob_index(dummy_dtype, key_field)
-                        assert index is not None, 'dtype has no field %s' % key
+                        assert index is not None, 'dtype has no field %s' % key_field
                         value = dummy_blob[index]
 
                         if value > cls.MAX_DTYPE_PARAM:
                             raise BlobValidationException(
                                 'dtype param %s must be smaller than %d (%d)' % (key, cls.MAX_DTYPE_PARAM, value))
+
+                        if value < 1:
+                            raise BlobValidationException(
+                                'dtype param %s must be positive (%d)' % (key, value))
 
                         dtype_params[key] = value
 
@@ -411,6 +444,7 @@ class Blob(object):
     def _init_blob_from_struct(self, struct, blob):
         """Copy all elements of a struct into the blob."""
         assert blob.dtype == self.dtype
+        cls = type(self)
 
         struct = flat_struct(struct)
 
@@ -427,7 +461,7 @@ class Blob(object):
 
         # assert that all elements are initialized
         for name, _name in map(lambda name_: (name_, underscore_to_camel_case(name_)), self._blob_fields_):
-            assert name in struct or _name in struct,  'uninitialized key %s/%s in %s' % (name, _name, type(self))
+            assert name in struct or _name in struct or name.endswith(cls.PADDING_FIELD_SUFFIX),  'uninitialized key %s/%s in %s' % (name, _name, type(self))
 
     def _data_property_type(self, name):
         """Get a function that casts the blob element to the correct python type."""
@@ -437,7 +471,11 @@ class Blob(object):
         def cast_bool(value):
             return bool(value > 0)
 
-        return {'<f4': float, '<i4': int, '|i1': cast_bool}[byte_offset]
+        return {
+            '<f4': float,
+            '<i4': int,
+            '|i1': cast_bool
+        }[byte_offset]
 
     def __setattr__(self, name, value):
         """Set the attribute 'name'.

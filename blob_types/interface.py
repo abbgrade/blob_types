@@ -3,8 +3,8 @@ import numpy
 import pyopencl as opencl
 from pyopencl.compyte.dtypes import dtype_to_ctype
 
-from blob_types.types import Blob, BlobArray
-from blob_types.utils import camel_case_to_underscore, implode_floatn
+from types import Blob, BlobArray
+from utils import camel_case_to_underscore, implode_floatn
 
 
 def walk_dependencies(dependencies):
@@ -62,12 +62,14 @@ class BlobInterface(object):
 
         field_definitions = []
         for field in dtype.names:
+            if field.endswith(Blob.PADDING_FIELD_SUFFIX):
+                continue
             field_definitions.append('\t%s %s;' % (dtype_to_ctype(dtype.fields[field][0]),  field))
         field_definitions = '\n'.join(field_definitions)
 
         definition = \
 '''
-typedef struct {
+typedef struct __attribute__((__packed__)) {
 %(fields)s
 } %(cname)s;
 ''' % {
@@ -95,7 +97,7 @@ typedef struct {
 };
 ''' % {
     'definition': definition,
-    'cname': self.get_cname('')
+    'cname': self.get_cname(''),
 }
 
         else:
@@ -107,6 +109,8 @@ typedef struct {
 
             # iterate over all components/subtypes
             for field, dtype in self.blob_type.subtypes:
+                if field.endswith(Blob.PADDING_FIELD_SUFFIX):
+                    continue
                 field_variable = '%s_instance' % field
 
                 if numpy.issctype(dtype):
@@ -160,6 +164,9 @@ typedef struct {
 
         # iterate over all subtypes/components
         for field, dtype in self.blob_type.subtypes:
+            if field.endswith(Blob.PADDING_FIELD_SUFFIX):
+                continue
+
             is_last_field = field == last_field
 
             # format
@@ -194,7 +201,7 @@ typedef struct {
 
             # set and cast component reference
             lines.append(
-                '*%s = (%s*)(((%s char*)blob) + %s);' % (field_variable, cname, address_space_qualifier, field_offset))
+                '*%s = (%s*)(bytes + %s);' % (field_variable, cname, field_offset))
 
             if not is_last_field:
                 # determine size of component
@@ -202,6 +209,8 @@ typedef struct {
 
             previous_field_space = field_space
             previous_field_offset = field_offset
+
+        declarations.append('%s char* bytes = (%s char*)blob;' % (address_space_qualifier, address_space_qualifier))
 
         lines = ['\t' + line for line in lines]
 
@@ -252,7 +261,7 @@ typedef struct {
 
 class BlobArrayInterface(BlobInterface):
 
-    FIRST_ITEM_FIELD = 'first_item'
+    FIRST_ITEM_FIELD = 'first'
 
     def __init__(self, blob_type):
         assert issubclass(blob_type, BlobArray)
@@ -267,7 +276,7 @@ class BlobArrayInterface(BlobInterface):
         field_definitions = '\n'.join(field_definitions)
 
         return \
-'''typedef struct {
+'''typedef struct __attribute__((__packed__)) {
 %(static_fields)s
     %(child_cname)s %(first_item_field)s;
 } %(cname)s;''' % {
@@ -304,16 +313,23 @@ class BlobArrayInterface(BlobInterface):
 
     def get_cdeserializer(self, address_space_qualifier):
         """Returns the c99 deserializer function."""
-        definition = 'void %(function_name)s(%(cname)s* list, %(child_cname)s** array)' % {
+
+        child_cname = BlobLib.get_interface(self.blob_type.child_type).get_cname(address_space_qualifier)
+
+        definition = 'void %(function_name)s(%(cname)s* blob_array, %(child_cname)s** array)' % {
             'function_name': self.get_deserialize_cname(address_space_qualifier),
-            'child_cname': BlobLib.get_interface(self.blob_type.child_type).get_cname(address_space_qualifier),
+            'child_cname': child_cname,
             'cname': self.get_cname(address_space_qualifier)}
         declaration = \
 '''
 %(definition)s {
-    array[0] = &(list->%(first_item_field)s);
+    %(address_space_qualifier)s char* bytes = (%(address_space_qualifier)s char*)blob_array;
+    *array = (%(child_cname)s*)(bytes + %(static_fields_space)s);
 };''' % {
     'definition' : definition,
+    'address_space_qualifier': address_space_qualifier,
+    'static_fields_space': BlobArray.STATIC_FIELDS_BYTES,
+    'child_cname': child_cname,
     'first_item_field' : self.FIRST_ITEM_FIELD
 }
         return definition + ';', declaration

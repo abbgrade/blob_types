@@ -56,31 +56,25 @@ def flat_struct(struct):
                 result['%s_%s' % (camel_case_to_underscore(key), subkey)] = value
         elif isinstance(value, list):
             for index, value in enumerate(value):
-                result['%s_%d' % (camel_case_to_underscore(key), index)] = value
+                parent_key = camel_case_to_underscore(key)
+                while parent_key.endswith('_'):
+                    parent_key = parent_key[:-1]
+                new_key = '%s_%d' % (parent_key, index)
+                result[new_key] = value
         else:
             result[camel_case_to_underscore(key)] = value
     return result
 
 
-def flat_list(value):
-    result = []
-    for item in value:
-        if isinstance(item, basestring):
-            result.append(item)
-        else:
-            raise NotImplementedError()
-    return result
-
-
 vector_fields = [
     ('x', 'y', 'z'),
-    ('_0', '_1', '_2')
+    ('0', '1', '2')
 ]
-
 
 def implode_floatn(struct_source):
     """Convert vector types."""
     lines = []
+    previous_parts = None
     for line in struct_source.split('\n'):
         parts = line.split()
         replaced = False
@@ -94,7 +88,6 @@ def implode_floatn(struct_source):
                     if not replaced:
                         for previous_index, char in enumerate(vector_field):
                             if not replaced:
-
                                 index = str(previous_index + 1)
                                 if previous_index < 2:
                                     previous_index = ''
@@ -116,7 +109,6 @@ def implode_floatn(struct_source):
         if not replaced:
             lines.append(line)
     return '\n'.join(lines)
-
 
 def get_blob_index(dtype, name):
     assert dtype
