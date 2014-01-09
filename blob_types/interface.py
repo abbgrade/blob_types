@@ -3,7 +3,7 @@ import numpy
 import pyopencl as opencl
 from pyopencl.compyte.dtypes import dtype_to_ctype
 
-from types import Blob, BlobArray
+from types import Blob, BlobArray, BlobEnum
 from utils import camel_case_to_underscore, implode_floatn
 
 
@@ -25,6 +25,7 @@ def walk_dependencies(dependencies):
 
 
 class BlobInterface(object):
+
     def __init__(self, blob_type):
         assert issubclass(blob_type, Blob)
         self.blob_type = blob_type
@@ -69,7 +70,7 @@ class BlobInterface(object):
 
         definition = \
 '''
-typedef struct __attribute__((__packed__)) {
+typedef struct __attribute__((__packed__)) _%(cname)s {
 %(fields)s
 } %(cname)s;
 ''' % {
@@ -259,6 +260,39 @@ typedef struct __attribute__((__packed__)) {
         return definition.strip() + ';', declaration
 
 
+class BlobEnumInterface(BlobInterface):
+
+    def __init__(self, blob_type):
+        assert issubclass(blob_type, BlobEnum)
+        BlobInterface.__init__(self, blob_type)
+
+    def get_ctype(self):
+
+        field_definitions = []
+        field_constants = []
+        for index, field in enumerate(self.blob_type.fields):
+            if len(field) == 0:
+                field = BlobEnum.UNDEFINED
+            constant = self.get_cname('').upper()+'_'+camel_case_to_underscore(field).upper()
+            field_definitions.append('\t%s = %s' % (camel_case_to_underscore(field), constant))
+            field_constants.append('#define %s %d' % (constant, index))
+        field_definitions = ',\n'.join(field_definitions)
+        field_constants = '\n'.join(field_constants)
+
+        return \
+'''
+%(field_constants)s
+
+typedef enum _%(cname)s {
+%(static_fields)s
+} %(cname)s;
+''' % {
+    'field_constants': field_constants,
+    'static_fields': field_definitions,
+    'cname': self.get_cname('')
+}
+
+
 class BlobArrayInterface(BlobInterface):
 
     FIRST_ITEM_FIELD = 'first'
@@ -276,7 +310,7 @@ class BlobArrayInterface(BlobInterface):
         field_definitions = '\n'.join(field_definitions)
 
         return \
-'''typedef struct __attribute__((__packed__)) {
+'''typedef struct __attribute__((__packed__)) _%(cname)s {
 %(static_fields)s
     %(child_cname)s %(first_item_field)s;
 } %(cname)s;''' % {
@@ -341,8 +375,13 @@ class BlobLib(object):
     @classmethod
     def get_interface(cls, blob_type):
         assert issubclass(blob_type, Blob)
-        if issubclass(blob_type, BlobArray):
+
+        if issubclass(blob_type, BlobEnum):
+            return BlobEnumInterface(blob_type)
+
+        elif issubclass(blob_type, BlobArray):
             return BlobArrayInterface(blob_type)
+
         else:
             return BlobInterface(blob_type)
 
@@ -384,7 +423,9 @@ class BlobLib(object):
 
                 blob_type_interface = BlobLib.get_interface(blob_type)
 
-                if issubclass(blob_type, BlobArray):
+                if issubclass(blob_type, BlobEnum):
+                    self.type_definitions.append(blob_type_interface.get_ctype())
+                elif issubclass(blob_type, BlobArray):
                     # The type is an array: add dummy type and deserializer.
 
                     try:
