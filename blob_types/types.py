@@ -10,6 +10,7 @@ def validate_dtype_params(function):
         assert isinstance(dtype_params, dict), 'expect dtype_params as dict instead of %s' % type(dtype_params)
 
         expected_keys = cls.get_dtype_param_keys()
+
         # validate dtype_params
         for key in expected_keys:
             if key not in dtype_params.keys():
@@ -144,9 +145,9 @@ class Blob(object):
                         keys.append('%s_%s' % (field, item))
 
                 else:
-                    pass # Blob without Blob fields
+                    pass  # Blob without Blob fields
         else:
-            pass # Blob without Blob fields
+            pass  # Blob without Blob fields
 
         return keys
 
@@ -291,6 +292,7 @@ class Blob(object):
                     subtype_params = cls.explode_dtype_params(field=field, dtype_params=dtype_params)
                     subtype.init_blob(blob=blobs[field], dtype_params=subtype_params)
 
+    # noinspection PyUnusedLocal
     @classmethod
     @process_dtype_params
     def cast_blob(cls, blob, offset, dtype_params, dtype=None):
@@ -347,7 +349,6 @@ class Blob(object):
                 dtype_components.append((field, BlobEnum.dtype))
 
             elif issubclass(subtype, Blob) and subtype.is_plain():
-
                 if hasattr(subtype, 'dtype'):
                     sub_dtype = subtype.dtype
 
@@ -382,6 +383,7 @@ class Blob(object):
             # determine padding attributes
             is_last_of_vector = False
             prefix, suffix = '_'.join(field.split('_')[:-1]), field.split('_')[-1]
+            vector_index = None
             for vector_field in vector_fields:
                 if suffix in vector_field:
                     vector_index = vector_field.index(suffix)
@@ -469,6 +471,7 @@ class Blob(object):
 
         if blob.dtype.kind in ['V', 'S']: # is void
             dtype, blob = cls.cast_blob(blob=blob, offset=0, dtype_params=dtype_params)
+
         else:
             dtype = cls.create_dtype(dtype_params=dtype_params)
 
@@ -476,6 +479,7 @@ class Blob(object):
 
         try:
             return cls(blob=blob, dtype_params=dtype_params)
+
         except Exception as ex:
             logging.warn('%s.%s', cls, ex)
             raise
@@ -491,6 +495,7 @@ class Blob(object):
         result = {}
         for key in self.get_dtype_param_keys():
             result[key] = self.__getattribute__(key)
+
         return result
 
     def __init__(self, blob, dtype_params=None, dtype=None, **fields):
@@ -509,11 +514,14 @@ class Blob(object):
         if dtype is None:
             if dtype_is_static:
                 dtype = type(self).dtype
+
             else:
                 try:
                     dtype = type(self).create_dtype(dtype_params=dtype_params)
+
                 except Exception:
                     raise
+
         assert dtype is not None
 
         # determine blob properties
@@ -558,6 +566,7 @@ class Blob(object):
 
             try:
                 self.__setattr__(name, value)
+
             except:
                 raise
 
@@ -663,6 +672,8 @@ class BlobArray(Blob):
         child_type     # the Blob-type of the array elements
         
     """
+
+    child_type = None  # must be overridden by specialized class
 
     STATIC_FIELDS_BYTES = 8
     CAPACITY_FIELD = 'capacity'
@@ -986,12 +997,16 @@ class BlobEnum(Blob):
         if index <= 0:
             if ignore_errors:
                 return cls.UNDEFINED
+
             else:
                 raise EnumException()
+
         elif index >= len(cls.fields):
             if ignore_errors:
                 return '%d is out of range' % index
+
             else:
                 raise EnumException()
+
         else:
             return cls.fields[index]

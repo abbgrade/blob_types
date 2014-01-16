@@ -115,7 +115,7 @@ def implode_floatn(struct_source):
         if not replaced:
             lines.append(line)
 
-    return '\n'.join(map(lambda line: line.replace('float3 ', 'float4 '), lines))
+    return '\n'.join(map(lambda line_: line_.replace('float3 ', 'float4 '), lines))
 
 def get_blob_index(dtype, name):
     assert dtype
