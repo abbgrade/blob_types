@@ -1,9 +1,10 @@
 import logging
 import numpy
 
-from utils import flat_struct, camel_case_to_underscore, underscore_to_camel_case, get_blob_index, diff_dtype, vector_fields
+from utils import flat_struct, camel_case_to_underscore, underscore_to_camel_case, get_blob_index, diff_dtype, vector_fields, implode_float_n
 
 def validate_dtype_params(function):
+
     def wrapper(cls, dtype_params=None, *args, **kwargs):
 
         assert isinstance(dtype_params, dict), 'expect dtype_params as dict instead of %s' % type(dtype_params)
@@ -20,6 +21,7 @@ def validate_dtype_params(function):
 
 
 def process_dtype_params(function):
+
     def wrapper(cls, dtype=None, dtype_params=None, *args, **kwargs):
 
         if dtype is None and dtype_params is None:
@@ -31,6 +33,7 @@ def process_dtype_params(function):
 
             # validate dtype_params
             for key in cls.get_dtype_param_keys():
+
                 if key not in dtype_params.keys():
                     raise TypeError('%s requires argument %s' % (cls, key))
 
@@ -43,8 +46,10 @@ def process_dtype_params(function):
 
             if (hasattr(cls, 'subtypes') and len(cls.subtypes) > 0) or issubclass(cls, BlobArray):
                 dtype = cls.create_dtype(dtype_params=dtype_params)
+
             elif hasattr(cls, 'dtype'):
                 dtype = cls.dtype
+
             else:
                 raise NotImplementedError()
 
@@ -85,6 +90,41 @@ class Blob(object):
     PADDING_FIELD_SUFFIX = '__padding'
 
     _dtypes = {} # map of known types for reuse and save memory
+    @classmethod
+    def is_complex(cls):
+
+        if issubclass(cls, BlobArray):
+            return True
+
+        for field, subtype in cls.subtypes:
+            if issubclass(subtype, Blob) and not issubclass(subtype, BlobEnum):
+                return True
+
+        return False
+
+    @classmethod
+    def is_plain(cls):
+
+        if issubclass(cls, BlobArray):
+            return False
+
+        for field, subtype in cls.subtypes:
+            if type(subtype) == type and issubclass(subtype, Blob) and not subtype.is_plain():
+                return False
+
+        return True
+
+    @classmethod
+    def get_requirements(cls):
+        requirements = []
+        for field, subtype in cls.subtypes:
+            if type(subtype) == type and issubclass(subtype, Blob):
+                requirements.extend(subtype.get_requirements())
+
+        if cls.subtypes:
+            fields, subtypes = zip(*cls.subtypes)
+            requirements.extend(subtypes)
+        return requirements
 
     @classmethod
     def get_dtype_param_keys(cls):
@@ -120,6 +160,7 @@ class Blob(object):
     @classmethod
     @process_dtype_params
     def create_dtype(cls, dtype_params):
+
         if hasattr(cls, 'dtype'):
             return cls.dtype
 
@@ -144,7 +185,7 @@ class Blob(object):
             else:
                 subtypes.append((field, subtype))
 
-        dtype, subtypes_ = Blob.create_flat_dtype(*subtypes)
+        dtype, subtypes_ = Blob.create_plain_dtype(*subtypes)
 
         cls._dtypes[hashable_dtype_params] = dtype
         return dtype
@@ -222,7 +263,7 @@ class Blob(object):
                     subtype_blob = None
                     subtype_byte_count = subtype().itemsize
 
-                if field is not None:
+                if field == subtype_field:
                     return subtype_blob
 
                 blobs[subtype_field] = subtype_blob
@@ -280,48 +321,66 @@ class Blob(object):
             return []
 
     @classmethod
-    def create_flat_dtype(cls, *subtypes):
-        """Creates a flat dtype structure that stores all elements including that of nested types."""
-
-        subtypes_ = []
-
-        dtype_components = []
-        for field, subtype in subtypes:
-            flat_sub_dtype_ = None
-            if type(subtype) is type:
-                if issubclass(subtype, Blob):
-                    subtypes_.append((field, subtype))
-                    if hasattr(subtype, 'dtype'):
-                        flat_sub_dtype_ = subtype.dtype
-                    else:
-                        flat_sub_dtype_, subtypes__ = subtype.create_flat_dtype(subtype.subtypes)
-                        subtypes_.extend(subtypes__)
-                else:
-                    dtype_components.append((field, subtype))
-            elif type(subtype) is numpy.dtype:
-                flat_sub_dtype_ = subtype
-            else:
-                raise NotImplementedError('flat dtype of %s : %s : %s' % (field, type(subtype), subtype))
-
-            if flat_sub_dtype_:
-                for name, dtype in flat_sub_dtype_.descr:
-                    dtype_components.append(('%s_%s' % (field, name), dtype))
-        return numpy.dtype(dtype_components), subtypes_
+    def create_plain_dtype(cls, *subtypes):
+        if implode_float_n:
+            return cls._create_aligned_dtype(*subtypes)
+        else:
+            return cls._create_unaligned_dtype(*subtypes)
 
     @classmethod
-    def create_aligned_dtype(cls, *subtypes):
+    def _create_unaligned_dtype(cls, *subtypes):
 
-        subtypes_ = []
-
+        requirements = []
         dtype_components = []
         for index, component in enumerate(subtypes):
             field, subtype = component
 
+            if numpy.issctype(subtype):
+                if hasattr(subtype, 'descr'):
+                    for name, sub_dtype in subtype.descr:
+                        subfield = '%s_%s' % (field, name)
+                        dtype_components.append((subfield, sub_dtype))
+                else:
+                    dtype_components.append(component)
+
+            elif issubclass(subtype, BlobEnum):
+                dtype_components.append((field, BlobEnum.dtype))
+
+            elif issubclass(subtype, Blob) and subtype.is_plain():
+
+                if hasattr(subtype, 'dtype'):
+                    sub_dtype = subtype.dtype
+
+                else:
+                    sub_dtype, subtype_requirements = subtype.create_plain_dtype(*subtype.subtypes)
+
+                for name, sub_dtype in sub_dtype.descr:
+                    subfield = '%s_%s' % (field, name)
+                    dtype_components.append((subfield, sub_dtype))
+
+            else:
+                raise NotImplementedError()
+
             if type(subtype) is type and issubclass(subtype, Blob):
-                subtypes_.append(component)
+                requirements.append(component)
 
+        return numpy.dtype(dtype_components), requirements
+
+    @classmethod
+    def _create_aligned_dtype(cls, *subtypes):
+
+        requirements = []
+
+        dtype_components = []
+        for index, component in enumerate(subtypes):
+            dtype_components.append(component)  #todo: add components of subfields of type blob
+            field, subtype = component
+
+            if type(subtype) is type and issubclass(subtype, Blob):
+                requirements.append(component)
+
+            # determine padding attributes
             is_last_of_vector = False
-
             prefix, suffix = '_'.join(field.split('_')[:-1]), field.split('_')[-1]
             for vector_field in vector_fields:
                 if suffix in vector_field:
@@ -334,12 +393,11 @@ class Blob(object):
                     else:
                         is_last_of_vector = True
 
-            dtype_components.append((field, subtype))
-
+            # add padding
             if is_last_of_vector and vector_index == 2:
                 dtype_components.append(('_%s%s' % (field, cls.PADDING_FIELD_SUFFIX), subtype))
 
-        return numpy.dtype(dtype_components), subtypes_
+        return numpy.dtype(dtype_components), requirements
 
     @classmethod
     def from_struct(cls, struct, blob):
@@ -349,11 +407,8 @@ class Blob(object):
 
         self = cls(blob)
 
-        try:
-            assert hasattr(self, '_init_blob_from_struct'), '%s requires an implementation of _init_blob_from_struct' % cls
-            self._init_blob_from_struct(struct=flat_struct(struct), blob=blob)
-        except:
-            raise
+        assert hasattr(self, '_init_blob_from_struct'), '%s requires an implementation of _init_blob_from_struct' % cls
+        self._init_blob_from_struct(struct=flat_struct(struct), blob=blob)
 
         return self
 
@@ -382,27 +437,26 @@ class Blob(object):
         dtype_params = cls.get_dummy_dtype_params()
         done_keys = []
 
-        if hasattr(cls, 'subtypes'):
-            for field, subtype in cls.subtypes:
-                for key in dtype_param_keys:
-                    if key not in done_keys and key.startswith(field):
-                        done_keys.append(key)
+        for field, subtype in cls.subtypes:
+            for key in dtype_param_keys:
+                if key not in done_keys and key.startswith(field):
+                    done_keys.append(key)
 
-                        dummy_dtype, dummy_blob = cls.cast_blob(blob=blob, offset=0, dtype_params=dtype_params)
-                        key_field = subtype.get_field_by_param_key(key, field)
-                        index = get_blob_index(dummy_dtype, key_field)
-                        assert index is not None, 'dtype has no field %s' % key_field
-                        value = dummy_blob[index]
+                    dummy_dtype, dummy_blob = cls.cast_blob(blob=blob, offset=0, dtype_params=dtype_params)
+                    key_field = subtype.get_field_by_param_key(key, field)
+                    index = get_blob_index(dummy_dtype, key_field)
+                    assert index is not None, 'dtype has no field %s' % key_field
+                    value = dummy_blob[index]
 
-                        if value > cls.MAX_DTYPE_PARAM:
-                            raise BlobValidationException(
-                                'dtype param %s must be smaller than %d (%d)' % (key, cls.MAX_DTYPE_PARAM, value))
+                    if value > cls.MAX_DTYPE_PARAM:
+                        raise BlobValidationException(
+                            'dtype param %s must be smaller than %d (%d)' % (key, cls.MAX_DTYPE_PARAM, value))
 
-                        if value < 1:
-                            raise BlobValidationException(
-                                'dtype param %s must be positive (%d)' % (key, value))
+                    if value < 1:
+                        raise BlobValidationException(
+                            'dtype param %s must be positive (%d)' % (key, value))
 
-                        dtype_params[key] = value
+                    dtype_params[key] = value
 
         assert dtype_param_keys == done_keys, '%s = %s' % (dtype_param_keys, done_keys)
 
@@ -415,6 +469,8 @@ class Blob(object):
 
         if blob.dtype.kind in ['V', 'S']: # is void
             dtype, blob = cls.cast_blob(blob=blob, offset=0, dtype_params=dtype_params)
+        else:
+            dtype = cls.create_dtype(dtype_params=dtype_params)
 
         assert blob.dtype == dtype, diff_dtype(blob.dtype, dtype)
 
@@ -437,15 +493,17 @@ class Blob(object):
             result[key] = self.__getattribute__(key)
         return result
 
-    def __init__(self, blob, dtype_params=None, dtype=None, validate_blob=True):
+    def __init__(self, blob, dtype_params=None, dtype=None, **fields):
         """Initializes the object."""
 
         if dtype_params is None:
             dtype_params = {}
 
-        dtype_is_static = hasattr(type(self), 'dtype') and isinstance(type(self).dtype, numpy.dtype)
+        dtype_is_static = False
+        if hasattr(self, 'dtype') and isinstance(self.dtype, numpy.dtype):
+            dtype_is_static = True
 
-        assert dtype_params or dtype or dtype_is_static, 'a dtype or the factory parameter must be set.'
+        assert dtype_params or dtype or dtype_is_static, '%s: a dtype or the factory parameter must be set.' % type(self)
 
         # determine dtype by creation parameters if dtype is unset
         if dtype is None:
@@ -467,6 +525,21 @@ class Blob(object):
         self._blob_fields_, self._blob_field_offsets = blob_properties
         self._blob = blob
         self.dtype = dtype
+
+        # init subtypes
+        if hasattr(self, 'subtypes'):
+            blobs = self.explode_blob(blob=blob, dtype_params=dtype_params)
+            for subtype_field, subtype_blob in blobs.items():
+                if subtype_field in fields:
+                    setattr(self, subtype_field, fields[subtype_field])
+                    continue
+
+                for name_, type_ in self.subtypes:
+                    if subtype_field == name_:
+                        subtype_cls = type_
+
+                if issubclass(subtype_cls, Blob) and not issubclass(subtype_cls, BlobEnum):
+                    setattr(self, subtype_field, subtype_cls.from_blob(subtype_blob))
 
         assert self.dtype == blob.dtype, diff_dtype(self.dtype, blob.dtype)
 
@@ -650,6 +723,13 @@ class BlobArray(Blob):
         return [cls.child_type]
 
     @classmethod
+    def get_requirements(cls):
+        """Returns all recursive required Blob-types."""
+        requirements = cls.child_type.get_requirements()
+        requirements.append(cls.child_type)
+        return requirements
+
+    @classmethod
     @validate_dtype_params
     def create_child_dtype(cls, dtype_params):
         dtype_params = dtype_params.copy()
@@ -708,14 +788,13 @@ class BlobArray(Blob):
         offset += child_dtype.itemsize * index
 
         assert cls.STATIC_FIELDS_BYTES + child_dtype.itemsize * index + child_dtype.itemsize <= blob.size * blob.itemsize, \
-            '%s: dtype:%d + %d * %d + %d = %d <= blob:%d * %d = %d' % ( repr(cls),
-                                                                        cls.STATIC_FIELDS_BYTES, child_dtype.itemsize,
-                                                                        index, child_dtype.itemsize,
-                                                                        (
-                                                                        cls.STATIC_FIELDS_BYTES + child_dtype.itemsize * index + child_dtype.itemsize),
-                                                                        # dtypesize
-                                                                        blob.size, blob.itemsize,
-                                                                        blob.nbytes
+            '%s: dtype:%d + %d * %d + %d = %d <= blob:%d * %d = %d' % (
+                repr(cls),
+                cls.STATIC_FIELDS_BYTES, child_dtype.itemsize,
+                index, child_dtype.itemsize,
+                (cls.STATIC_FIELDS_BYTES + child_dtype.itemsize * index + child_dtype.itemsize),
+                blob.size, blob.itemsize,
+                blob.nbytes
             )
 
         # get blob
@@ -738,6 +817,21 @@ class BlobArray(Blob):
         except Exception as ex:
             logging.warn('%s.%s', cls, ex)
             raise
+
+    @classmethod
+    def from_struct(cls, struct, blob):
+        """Creates and initializes a object from a struct."""
+
+        assert blob.shape == (), 'the blob must be plain'
+
+        items = []
+        for index, child_struct in enumerate(struct):
+            child_blob = cls.get_item_blob(blob, index, child_dtype=None)
+            items.append(cls.child_type.from_struct(child_struct, child_blob))
+
+        self = cls(blob, items=items)
+
+        return self
 
     @classmethod
     def get_field_by_param_key(cls, key, parent_field):
@@ -775,7 +869,6 @@ class BlobArray(Blob):
         capacity = dummy_blob[field_index]
         cls.validate_capacity(capacity)
         dtype_params[cls.CAPACITY_FIELD] = capacity
-        logging.info('%s has %d', repr(cls), capacity)
 
         child_dtype, capacity = cls.create_child_dtype(dtype_params)
         item_blob = cls.get_item_blob(blob=dummy_blob, index=0, child_dtype=child_dtype)
@@ -797,9 +890,9 @@ class BlobArray(Blob):
         if capacity is None:
             capacity = len(items)
 
-        assert capacity > 0, 'an empty list? use java for that!'
+        assert capacity > 0, '%s: an empty list? use java for that!' % cls
         assert blob.shape == ()
-        assert blob.nbytes > 4, 'the blob must be greater than the index variable space'
+        assert blob.nbytes > 4, '%s: the blob must be greater than the index variable space' % cls
 
         if dtype_params is None:
             dtype_params = {cls.CAPACITY_FIELD: capacity}
@@ -820,7 +913,7 @@ class BlobArray(Blob):
                 if items[index] is not None:
                     self.count = index + 1
                     break
-            logging.info('init count from item list to %d', self.count)
+
         else:
             child_dtype, capacity_ = self.create_child_dtype(dtype_params)
 
@@ -838,8 +931,6 @@ class BlobArray(Blob):
 
             except RuntimeError:
                 raise
-
-            logging.info('init count from blob items to %d', self.count)
 
     def __getitem__(self, index):
         """Returns the element at the given index."""

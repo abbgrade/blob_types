@@ -1,3 +1,6 @@
+
+implode_float_n = False
+
 def camel_case_to_underscore(name):
     """Convert a CamelCaseString into an underscore_string."""
 
@@ -51,18 +54,22 @@ def flat_struct(struct):
 
     result = {}
     for key, value in struct.items():
+
+        # trim key
+        while key.endswith('_'):
+            key = key[:-1]
+
         if isinstance(value, dict):
             for subkey, value in flat_struct(value).items():
                 result['%s_%s' % (camel_case_to_underscore(key), subkey)] = value
+
         elif isinstance(value, list):
             for index, value in enumerate(value):
-                parent_key = camel_case_to_underscore(key)
-                while parent_key.endswith('_'):
-                    parent_key = parent_key[:-1]
-                new_key = '%s_%d' % (parent_key, index)
-                result[new_key] = value
+                result['%s_%d' % (camel_case_to_underscore(key), index)] = value
+
         else:
             result[camel_case_to_underscore(key)] = value
+
     return result
 
 
@@ -74,7 +81,6 @@ vector_fields = [
 def implode_floatn(struct_source):
     """Convert vector types."""
     lines = []
-    previous_parts = None
     for line in struct_source.split('\n'):
         parts = line.split()
         replaced = False
@@ -108,7 +114,8 @@ def implode_floatn(struct_source):
 
         if not replaced:
             lines.append(line)
-    return '\n'.join(lines)
+
+    return '\n'.join(map(lambda line: line.replace('float3 ', 'float4 '), lines))
 
 def get_blob_index(dtype, name):
     assert dtype

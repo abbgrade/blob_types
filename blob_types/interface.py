@@ -4,7 +4,7 @@ import pyopencl as opencl
 from pyopencl.compyte.dtypes import dtype_to_ctype
 
 from types import Blob, BlobArray, BlobEnum
-from utils import camel_case_to_underscore, implode_floatn
+from utils import camel_case_to_underscore, implode_floatn, implode_float_n
 
 
 def walk_dependencies(dependencies):
@@ -13,12 +13,12 @@ def walk_dependencies(dependencies):
     blob_types = []
     for blob_type in dependencies:
         if blob_type not in blob_types:
-            if issubclass(blob_type, Blob):
+            if type(blob_type) == type and issubclass(blob_type, Blob):
                 blob_types.extend(walk_dependencies(blob_type.get_subtypes()))
             elif numpy.issctype(blob_type):
                 pass
             else:
-                assert False, 'blob_type must be a subclass of blob_types.Blob or a numpy.dtype'
+                assert False, 'blob_type must be a subclass of blob_types.Blob or a numpy.dtype not: %s' % type(blob_type)
 
     blob_types.extend(filter(lambda blob_type_: issubclass(blob_type_, Blob), dependencies))
     return blob_types
@@ -108,14 +108,15 @@ class BlobComplexInterface(BlobInterface):
 
             else:
                 assert issubclass(subtype, Blob), 'unexpected type %s %s' % (type(subtype), subtype)
-                if BlobLib.is_complex(subtype):
-                    fields.append('%s %s;' % (
-                        BlobLib.get_interface(subtype).get_cname(address_space_qualifier),
-                        field
-                    ))
-                else:
+                if subtype.is_plain():
                     fields.append('%s* %s;' % (
                         BlobLib.get_interface(subtype).get_spaced_cname(address_space_qualifier),
+                        field
+                    ))
+
+                else:
+                    fields.append('%s %s;' % (
+                        BlobLib.get_interface(subtype).get_cname(address_space_qualifier),
                         field
                     ))
 
@@ -240,7 +241,7 @@ typedef struct _%(name)s
             lines.append('%s = %s + %s;' % (field_offset, previous_field_offset, previous_field_space))
 
             # set and cast component reference
-            if not numpy.issctype(subtype) and BlobLib.is_complex(subtype):
+            if not numpy.issctype(subtype) and not subtype.is_plain():
                 lines.append('%s(%s, &%s);' % (
                     BlobLib.get_interface(subtype).get_deserialize_cname(address_space_qualifier),
                     field_reference,
@@ -276,7 +277,6 @@ typedef struct _%(name)s
 class BlobPlainInterface(BlobInterface):
 
     def get_cfunctions(self, address_space_qualifier):
-
         return zip(*[self.get_csizeof(address_space_qualifier)])
 
     def get_ctype(self, address_space_qualifier):
@@ -397,7 +397,9 @@ typedef struct __attribute__((__packed__)) _%(name)s
 %(definition)s
 {
     unsigned long static_fields_space = %(static_fields_space)s;
-    unsigned long items_space = (*(%(address_space_qualifier)s int*) blob) * %(child_sizeof_cname)s(blob + static_fields_space);
+    int capacity = *((%(address_space_qualifier)s int*) blob);
+    unsigned long sizeof_child = %(child_sizeof_cname)s(blob + static_fields_space);
+    unsigned long items_space = capacity * sizeof_child;
     return static_fields_space + items_space;
 };
 ''' % {
@@ -444,18 +446,6 @@ class BlobLib(object):
     """Generates C-code which allows to work with the serialized blob data."""
 
     @classmethod
-    def is_complex(cls, blob_type):
-
-        if issubclass(blob_type, BlobArray):
-            return True
-
-        for field, subtype in blob_type.subtypes:
-            if issubclass(subtype, Blob) and cls.is_complex(subtype):
-                return True
-
-        return False
-
-    @classmethod
     def get_interface(cls, blob_type):
         assert issubclass(blob_type, Blob)
 
@@ -465,11 +455,11 @@ class BlobLib(object):
         elif issubclass(blob_type, BlobArray):
             return BlobArrayInterface(blob_type)
 
-        elif cls.is_complex(blob_type):
-            return BlobComplexInterface(blob_type)
+        elif blob_type.is_plain():
+            return BlobPlainInterface(blob_type)
 
         else:
-            return BlobPlainInterface(blob_type)
+            return BlobComplexInterface(blob_type)
 
     def __init__(self,
                  device=None,
@@ -515,7 +505,11 @@ class BlobLib(object):
                 blob_type_interface = BlobLib.get_interface(blob_type)
 
                 # add type definition
-                type_definition = implode_floatn(blob_type_interface.get_ctype(address_space_qualifier=address_space_qualifier))
+                if implode_float_n:
+                    type_definition = implode_floatn(blob_type_interface.get_ctype(address_space_qualifier=address_space_qualifier))
+                else:
+                    type_definition = (blob_type_interface.get_ctype(address_space_qualifier=address_space_qualifier))
+
                 self.type_definitions.append(type_definition)
 
                 # add function definitions and declarations
