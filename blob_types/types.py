@@ -194,7 +194,7 @@ class Blob(object):
     @process_dtype_params
     def allocate_blob(cls, dtype_params, dtype):
         blob = cls.unshape(blob=numpy.zeros(1, dtype))
-        cls.empty_blob(blob=blob, dtype_params=dtype_params)
+        cls.init_blob(blob=blob, dtype_params=dtype_params)
         return dtype, blob
 
     @classmethod
@@ -279,7 +279,7 @@ class Blob(object):
 
     @classmethod
     @validate_dtype_params
-    def empty_blob(cls, blob, dtype_params):
+    def init_blob(cls, blob, dtype_params):
         if hasattr(cls, 'subtypes'):
             blobs = cls.explode_blob(blob=blob, dtype_params=dtype_params)
 
@@ -289,7 +289,7 @@ class Blob(object):
             for field, subtype in cls.subtypes:
                 if issubclass(subtype, Blob):
                     subtype_params = cls.explode_dtype_params(field=field, dtype_params=dtype_params)
-                    subtype.empty_blob(blob=blobs[field], dtype_params=subtype_params)
+                    subtype.init_blob(blob=blobs[field], dtype_params=subtype_params)
 
     @classmethod
     @process_dtype_params
@@ -758,7 +758,7 @@ class BlobArray(Blob):
 
     @classmethod
     @process_dtype_params
-    def empty_blob(cls, blob, dtype_params, dtype=None):
+    def init_blob(cls, blob, dtype_params, dtype=None):
 
         assert blob.dtype == dtype, diff_dtype(blob.dtype, dtype)
 
@@ -770,7 +770,7 @@ class BlobArray(Blob):
 
         for index in range(capacity):
             item_blob = cls.get_item_blob(blob=blob, index=index, child_dtype=child_dtype)
-            cls.child_type.empty_blob(blob=item_blob, dtype_params=dtype_params)
+            cls.child_type.init_blob(blob=item_blob, dtype_params=dtype_params)
             item_blob[get_blob_index(child_dtype, cls.INDEX_FIELD)] = -1
 
 
@@ -947,6 +947,25 @@ class BlobArray(Blob):
     def to_struct(self):
         """Returns a struct representation of all stored elements."""
         return [item.to_struct() for item in self._items]
+
+
+class BlobLinkedList(BlobArray):
+
+    def next_blob(self):
+        self.count += 1
+        index = self.count - 1
+        assert index < self.capacity, 'not enough capacity %d < %d' % (index, self.capacity)
+
+        item_blob = BlobArray.get_item_blob(blob=self.blob, index=index, child_dtype=self.child_type.dtype)
+        global_index_field_index = get_blob_index(self.child_type.dtype, 'global_index')
+        item_blob[global_index_field_index] = index
+        return item_blob, index
+
+    def append(self, item):
+        assert isinstance(item, self.child_type)
+        assert item.global_index > -1
+        assert item.global_index == self.count - 1
+        self._items[item.global_index] = item
 
 
 class BlobEnum(Blob):
