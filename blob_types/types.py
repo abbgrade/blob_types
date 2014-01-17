@@ -7,6 +7,9 @@ def validate_dtype_params(function):
 
     def wrapper(cls, dtype_params=None, *args, **kwargs):
 
+        if dtype_params is None and cls.is_plain():
+            dtype_params = {}
+
         assert isinstance(dtype_params, dict), 'expect dtype_params as dict instead of %s' % type(dtype_params)
 
         expected_keys = cls.get_dtype_param_keys()
@@ -24,6 +27,9 @@ def validate_dtype_params(function):
 def process_dtype_params(function):
 
     def wrapper(cls, dtype=None, dtype_params=None, *args, **kwargs):
+
+        if dtype_params is None and cls.is_plain():
+            dtype_params = {}
 
         if dtype is None and dtype_params is None:
             raise TypeError('%s requires argument dtype or dtype_params not %s, %s' % (cls, args, kwargs))
@@ -498,11 +504,12 @@ class Blob(object):
 
         return result
 
-    def __init__(self, blob, dtype_params=None, dtype=None, **fields):
+    def __init__(self, blob=None, dtype_params=None, dtype=None, **fields):
         """Initializes the object."""
+        cls = type(self)
 
-        if dtype_params is None:
-            dtype_params = {}
+        if blob is None:
+            dtype, blob = cls.allocate_blob(dtype_params=dtype_params, dtype=dtype)
 
         dtype_is_static = False
         if hasattr(self, 'dtype') and isinstance(self.dtype, numpy.dtype):
@@ -535,11 +542,11 @@ class Blob(object):
         self.dtype = dtype
 
         # init subtypes
-        if hasattr(self, 'subtypes'):
+        if hasattr(self, 'subtypes') and len(self.subtypes) > 0:
             blobs = self.explode_blob(blob=blob, dtype_params=dtype_params)
             for subtype_field, subtype_blob in blobs.items():
                 if subtype_field in fields:
-                    setattr(self, subtype_field, fields[subtype_field])
+                    setattr(self, subtype_field, fields.pop(subtype_field))
                     continue
 
                 for name_, type_ in self.subtypes:
@@ -548,6 +555,10 @@ class Blob(object):
 
                 if issubclass(subtype_cls, Blob) and not issubclass(subtype_cls, BlobEnum):
                     setattr(self, subtype_field, subtype_cls.from_blob(subtype_blob))
+
+        # init plain fields
+        for field, value in fields.items():
+            setattr(self, field, value)
 
         assert self.dtype == blob.dtype, diff_dtype(self.dtype, blob.dtype)
 
