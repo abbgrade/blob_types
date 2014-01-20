@@ -17,12 +17,13 @@ Install
 Documentation
 -------------
 
-[HTML Documentation](http://abbgrade.github.io/blob_types/__init__.html)
+The [doc](http://abbgrade.github.io/blob_types/__init__.html) is based on [pycco](https://github.com/fitzgen/pycco) and hosted on github pages.
 
-Generation
-..........
+The generated HTML is stored in the *gh-pages* branch.
 
 	git clone https://github.com/abbgrade/blob_types/tree/gh-pages# blob_types_doc
+
+It could be generated with the *pycco* command.
 
 	pycco blob_types/blob_types/*.py -d blob_types_doc
 
