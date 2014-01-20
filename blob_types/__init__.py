@@ -1,5 +1,5 @@
 """
-The **blob_types** package is structured into three modules.
+The [blob_types](https://github.com/abbgrade/blob_types) package is structured into three modules.
 
 - [Types](./types.html) contains abstract classes which help to build serializable data structures.
 - [Interface](./interface.html) contains classes which generate c structs and functions for access to blob_types based data structures.

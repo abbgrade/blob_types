@@ -17,12 +17,14 @@ Install
 Documentation
 -------------
 
-[HTML Documentation](./doc/__index__.html)
+[HTML Documentation](http://abbgrade.github.io/blob_types/__init__.html)
 
-Generation 
+Generation
 ..........
 
-	pycco blob_types/*.py -d doc
+	git clone https://github.com/abbgrade/blob_types/tree/gh-pages# blob_types_doc
+
+	pycco blob_types/blob_types/*.py -d blob_types_doc
 
 TODO
 ----
