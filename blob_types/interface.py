@@ -1,3 +1,8 @@
+"""
+... is a submodule of [blob_types](__init__.html).
+It contains classes which generate c structs and functions for access to blob_types based data structures.
+"""
+
 import numpy
 import pyopencl as opencl
 from pyopencl.compyte.dtypes import dtype_to_ctype
@@ -551,7 +556,6 @@ class BlobLib(object):
                  header_footer=''):
 
         if device is None:
-            # noinspection PyUnusedLocal
             device = opencl.create_some_context(False).get_info(opencl.context_info.DEVICES)[0]
 
         if required_constant_blob_types is None:

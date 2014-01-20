@@ -1,3 +1,8 @@
+"""
+... is a submodule of [blob_types](__init__.html).
+It contains abstract classes which help to build serializable data structures.
+"""
+
 import logging
 import numpy
 
@@ -90,7 +95,6 @@ class Blob(object):
         subtypes    # the class definition of nested Blob-types
 
     todo: use __metaclass__
-        
     """
 
     MAX_DTYPE_PARAM = 5000
@@ -313,7 +317,6 @@ class Blob(object):
                     subtype_params = cls.explode_dtype_params(field=field, dtype_params=dtype_params)
                     subtype.init_blob(blob=blobs[field], dtype_params=subtype_params)
 
-    # noinspection PyUnusedLocal
     @classmethod
     @process_dtype_params
     def cast_blob(cls, blob, offset, dtype_params, dtype=None):
@@ -633,10 +636,9 @@ class Blob(object):
             object.__setattr__(self, name, value)
 
     def __eq__(self, other):
-        """
-        compares the representation of each field and return false, if one differs.
+        """Compares the representation of each field and return false, if one differs.
 
-        repr is used to support NAN values
+        repr is used to support NAN values.
         """
         for field in self._blob_fields_:
             if repr(getattr(self, field)) != repr(getattr(other, field)):
@@ -678,9 +680,9 @@ class Blob(object):
             raise
 
     def to_struct(self):
-        """"Generates a struct from the blob data.
+        """Generates a struct from the blob data.
         
-        @todo: unflat the structure
+        todo: unflat the structure
         """
         struct = {}
         for name in self._blob_fields_:

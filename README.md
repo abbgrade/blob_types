@@ -12,7 +12,17 @@ Contribute
 Install
 -------
 
-	python setup.py install 
+	python setup.py install
+
+Documentation
+-------------
+
+[HTML Documentation](./doc/__index__.html)
+
+Generation 
+..........
+
+	pycco blob_types/*.py -d doc
 
 TODO
 ----

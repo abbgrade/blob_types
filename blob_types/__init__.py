@@ -1,3 +1,11 @@
+"""
+The **blob_types** package is structured into three modules.
+
+- [Types](./types.html) contains abstract classes which help to build serializable data structures.
+- [Interface](./interface.html) contains classes which generate c structs and functions for access to blob_types based data structures.
+- [Utils](./utils.html) contains helper functions.
+"""
+
 __author__ = 'Steffen Kampmann'
 __email__ = 'steffen.kampmann@gmail.com'
 __version__ = '0.9.1'

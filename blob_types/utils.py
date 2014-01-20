@@ -1,3 +1,7 @@
+"""
+... is a submodule of [blob_types](__init__.html).
+It contains helper functions.
+"""
 
 implode_float_n = False
 
@@ -26,7 +30,7 @@ def underscore_to_camel_case(name):
 def flat_struct(struct):
     """Copy a struct, which contains all values but without nesting dicts of lists.
 
-    @example:
+    ### Example:
         {
             'foo': 'bar',
             'pos': {
@@ -202,7 +206,7 @@ def diff_dtype(a, b):
             elif a_field.isdigit():
                 if diff_start is None:
                     result.append('%d: %s' % (index - 1, a.names[index - 1][0]))
-                    
+
                 result.append('%d: %s is invalid on first dtype' % (index, a_field))
 
                 if diff_start is None:
