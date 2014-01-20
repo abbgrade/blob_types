@@ -8,8 +8,10 @@ def camel_case_to_underscore(name):
     for char in name:
         if char.isupper() and len(new_name) > 0:
             new_name.append('_' + char.lower())
+
         else:
             new_name.append(char.lower())
+
     return ''.join(new_name)
 
 
@@ -97,6 +99,7 @@ def implode_floatn(struct_source):
                                 index = str(previous_index + 1)
                                 if previous_index < 2:
                                     previous_index = ''
+
                                 else:
                                     previous_index = str(previous_index)
 
@@ -199,6 +202,7 @@ def diff_dtype(a, b):
             elif a_field.isdigit():
                 if diff_start is None:
                     result.append('%d: %s' % (index - 1, a.names[index - 1][0]))
+                    
                 result.append('%d: %s is invalid on first dtype' % (index, a_field))
 
                 if diff_start is None:

@@ -589,6 +589,7 @@ class BlobLib(object):
                 # add type definition
                 if implode_float_n:
                     type_definition = implode_floatn(blob_type_interface.get_ctype(address_space_qualifier=address_space_qualifier))
+
                 else:
                     type_definition = (blob_type_interface.get_ctype(address_space_qualifier=address_space_qualifier))
 
