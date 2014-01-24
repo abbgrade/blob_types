@@ -126,17 +126,31 @@ class Blob(object):
         return True
 
     @classmethod
-    def get_requirements(cls):
-        requirements = []
+    def get_dependencies(cls, recursive):
+        dependencies = []
+
         for field, subtype in cls.subtypes:
             if type(subtype) == type and issubclass(subtype, Blob):
-                requirements.extend(subtype.get_requirements())
+                if recursive:
+                    dependencies.extend(subtype.get_dependencies(recursive=recursive))
 
-        if cls.subtypes:
-            fields, subtypes = zip(*cls.subtypes)
-            requirements.extend(subtypes)
+                dependencies.append(subtype)
 
-        return requirements
+        return dependencies
+
+    @classmethod
+    def get_blob_fields(cls, recursive):
+        fields = []
+
+        for field, subtype in cls.subtypes:
+            if type(subtype) == type and issubclass(subtype, Blob):
+                if recursive:
+                    for subfield, subsubtype in subtype.get_blob_fields(recursive=recursive):
+                        fields.append(('%s_%s' % (field, subfield), subsubtype))
+
+                fields.append((field, subtype))
+
+        return fields
 
     @classmethod
     def get_dtype_param_keys(cls):
@@ -336,18 +350,6 @@ class Blob(object):
 
         else:
             return blob
-
-    @classmethod
-    def get_subtypes(cls):
-        """Returns all required Blob-types (without transitions).
-        
-        Result is a tuple of two lists, with the attribute names and with the types."""
-
-        if hasattr(cls, 'subtypes') and len(cls.subtypes) > 0:
-            return zip(*cls.subtypes)[1]
-
-        else:
-            return []
 
     @classmethod
     def create_plain_dtype(cls, *subtypes):
@@ -761,16 +763,28 @@ class BlobArray(Blob):
         return dtype
 
     @classmethod
-    def get_subtypes(cls):
-        """Returns all direct required Blob-types."""
-        return [cls.child_type]
+    def get_dependencies(cls, recursive):
+        """Returns all recursive required Blob-types."""
+        dependencies = []
+
+        if recursive:
+            dependencies.extend(cls.child_type.get_dependencies(recursive=recursive))
+
+        dependencies.append(cls.child_type)
+        return dependencies
 
     @classmethod
-    def get_requirements(cls):
-        """Returns all recursive required Blob-types."""
-        requirements = cls.child_type.get_requirements()
-        requirements.append(cls.child_type)
-        return requirements
+    def get_blob_fields(cls, recursive):
+        """Returns all recursive contained Blob-type fields."""
+        fields = []
+
+        if recursive:
+            for subfield, subtype in cls.child_type.get_blob_fields(recursive=recursive):
+                fields.append('item_%s' % subfield, subtype)
+
+
+        fields.append('item', cls.child_type)
+        return fields
 
     @classmethod
     @validate_dtype_params
