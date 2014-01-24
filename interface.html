@@ -58,7 +58,8 @@ It contains classes which generate c structs and functions for access to blob_ty
             <span class="k">elif</span> <span class="n">numpy</span><span class="o">.</span><span class="n">issctype</span><span class="p">(</span><span class="n">blob_type</span><span class="p">):</span>
                 <span class="k">pass</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">assert</span> <span class="bp">False</span><span class="p">,</span> <span class="s">&#39;blob_type must be a subclass of blob_types.Blob or a numpy.dtype not: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">blob_type</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="bp">False</span><span class="p">,</span> <span class="s">&#39;blob_type must be a subclass of blob_types.Blob or a numpy.dtype not: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span>
+                    <span class="n">blob_type</span><span class="p">)</span>
 
     <span class="n">blob_types</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">blob_type_</span><span class="p">:</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">blob_type_</span><span class="p">,</span> <span class="n">Blob</span><span class="p">),</span> <span class="n">dependencies</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">blob_types</span></pre></div>
@@ -73,7 +74,7 @@ It contains classes which generate c structs and functions for access to blob_ty
       
     </div>
     <div class='code'>
-      <div class="highlight"><pre><span class="k">class</span> <span class="nc">BlobInterface</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span></pre></div>
+      <div class="highlight"><pre><span class="k">class</span> <span class="nc">Lib</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -82,12 +83,53 @@ It contains classes which generate c structs and functions for access to blob_ty
       <div class='octowrap'>
         <a class='octothorpe' href='#section-4'>#</a>
       </div>
-      
+      <p>Returns the type name in c99-style including a address space qualifier (local, constant, global, private).</p>
     </div>
     <div class='code'>
-      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blob_type</span><span class="p">):</span>
+      <div class="highlight"><pre>    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">header_code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">header_code</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">dependency</span><span class="o">.</span><span class="n">header_code</span> <span class="k">for</span> <span class="n">dependency</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dependecies</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">header_code_path</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">header_code_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">file_handle</span><span class="p">:</span>
+                <span class="n">header_code</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span> <span class="o">+</span> <span class="n">file_handle</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">header_code</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">source_code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">source_code</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">dependency</span><span class="o">.</span><span class="n">source_code</span> <span class="k">for</span> <span class="n">dependency</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dependecies</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_code_path</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_code_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">file_handle</span><span class="p">:</span>
+                <span class="n">source_code</span> <span class="o">+=</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span> <span class="o">+</span> <span class="n">file_handle</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">source_code</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dependencies</span><span class="o">=</span><span class="p">[],</span> <span class="n">code_path</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dependecies</span> <span class="o">=</span> <span class="n">dependencies</span>
+
+        <span class="k">if</span> <span class="n">code_path</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">header_code_path</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">.h&#39;</span> <span class="o">%</span> <span class="n">code_path</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source_code_path</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">.cl&#39;</span> <span class="o">%</span> <span class="n">code_path</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">header_code_path</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source_code_path</span> <span class="o">=</span> <span class="bp">None</span>
+
+
+<span class="k">class</span> <span class="nc">BlobInterface</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blob_type</span><span class="p">):</span>
         <span class="k">assert</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">blob_type</span><span class="p">,</span> <span class="n">Blob</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span> <span class="o">=</span> <span class="n">blob_type</span></pre></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span> <span class="o">=</span> <span class="n">blob_type</span>
+
+    <span class="k">def</span> <span class="nf">get_cfunctions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s">&#39;abstract get_cfunctions </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">get_address_space_suffix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">address_space_qualifier</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">get_cname</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">,</span> <span class="n">clean</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -95,44 +137,6 @@ It contains classes which generate c structs and functions for access to blob_ty
     <div class='docs'>
       <div class='octowrap'>
         <a class='octothorpe' href='#section-5'>#</a>
-      </div>
-      
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_cfunctions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s">&#39;abstract get_cfunctions </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-6'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-6'>#</a>
-      </div>
-      
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_address_space_suffix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">address_space_qualifier</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-7'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-7'>#</a>
-      </div>
-      <p>Returns the type name in c99-style including a address space qualifier (local, constant, global, private).</p>
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_cname</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">,</span> <span class="n">clean</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-8'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-8'>#</a>
       </div>
       
     </div>
@@ -148,10 +152,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-9'>
+  <div class='section' id='section-6'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-9'>#</a>
+        <a class='octothorpe' href='#section-6'>#</a>
       </div>
       
     </div>
@@ -162,10 +166,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-10'>
+  <div class='section' id='section-7'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-10'>#</a>
+        <a class='octothorpe' href='#section-7'>#</a>
       </div>
       <p>Returns the c99 function name of the sizeof function.</p>
     </div>
@@ -174,10 +178,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-11'>
+  <div class='section' id='section-8'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-11'>#</a>
+        <a class='octothorpe' href='#section-8'>#</a>
       </div>
       
     </div>
@@ -186,10 +190,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-12'>
+  <div class='section' id='section-9'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-12'>#</a>
+        <a class='octothorpe' href='#section-9'>#</a>
       </div>
       <p>Returns the function name of the c99 deserializer function.</p>
     </div>
@@ -198,10 +202,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-13'>
+  <div class='section' id='section-10'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-13'>#</a>
+        <a class='octothorpe' href='#section-10'>#</a>
       </div>
       
     </div>
@@ -210,10 +214,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-14'>
+  <div class='section' id='section-11'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-14'>#</a>
+        <a class='octothorpe' href='#section-11'>#</a>
       </div>
       <p>Returns the c99 init function name.</p>
     </div>
@@ -222,10 +226,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-15'>
+  <div class='section' id='section-12'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-15'>#</a>
+        <a class='octothorpe' href='#section-12'>#</a>
       </div>
       
     </div>
@@ -237,15 +241,51 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-16'>
+  <div class='section' id='section-13'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-16'>#</a>
+        <a class='octothorpe' href='#section-13'>#</a>
       </div>
       <p>Returns the c99 declaration of the type.</p>
     </div>
     <div class='code'>
       <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_ctype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-14'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-14'>#</a>
+      </div>
+      
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s">&#39;abstract get_ctype </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-15'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-15'>#</a>
+      </div>
+      <p>Creates a c99 sizeof method.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_csizeof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-16'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-16'>#</a>
+      </div>
+      
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s">&#39;abstract get_csizeof </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -257,7 +297,7 @@ It contains classes which generate c structs and functions for access to blob_ty
       
     </div>
     <div class='code'>
-      <div class="highlight"><pre>        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s">&#39;abstract get_ctype </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span></pre></div>
+      <div class="highlight"><pre><span class="k">class</span> <span class="nc">BlobComplexInterface</span><span class="p">(</span><span class="n">BlobInterface</span><span class="p">):</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -265,42 +305,6 @@ It contains classes which generate c structs and functions for access to blob_ty
     <div class='docs'>
       <div class='octowrap'>
         <a class='octothorpe' href='#section-18'>#</a>
-      </div>
-      <p>Creates a c99 sizeof method.</p>
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_csizeof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-19'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-19'>#</a>
-      </div>
-      
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s">&#39;abstract get_csizeof </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-20'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-20'>#</a>
-      </div>
-      
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre><span class="k">class</span> <span class="nc">BlobComplexInterface</span><span class="p">(</span><span class="n">BlobInterface</span><span class="p">):</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-21'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-21'>#</a>
       </div>
       
     </div>
@@ -314,10 +318,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-22'>
+  <div class='section' id='section-19'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-22'>#</a>
+        <a class='octothorpe' href='#section-19'>#</a>
       </div>
       <p>Returns the c99 deserializer function declaration, which separates the components of a flat type.</p>
     </div>
@@ -326,10 +330,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-23'>
+  <div class='section' id='section-20'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-23'>#</a>
+        <a class='octothorpe' href='#section-20'>#</a>
       </div>
       
     </div>
@@ -338,10 +342,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-24'>
+  <div class='section' id='section-21'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-24'>#</a>
+        <a class='octothorpe' href='#section-21'>#</a>
       </div>
       <p>iterate over all subtypes/components</p>
     </div>
@@ -352,10 +356,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-25'>
+  <div class='section' id='section-22'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-25'>#</a>
+        <a class='octothorpe' href='#section-22'>#</a>
       </div>
       <p>used variable names</p>
     </div>
@@ -364,10 +368,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-26'>
+  <div class='section' id='section-23'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-26'>#</a>
+        <a class='octothorpe' href='#section-23'>#</a>
       </div>
       <p>add sizeof call of component</p>
     </div>
@@ -390,25 +394,25 @@ It contains classes which generate c structs and functions for access to blob_ty
                     <span class="p">))</span>
 
         <span class="n">definition</span> <span class="o">=</span> \
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">/* complex type %(name)s */</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            /* complex type %(name)s */</span>
 
-<span class="sd">typedef struct _%(name)s</span>
-<span class="sd">{</span>
-<span class="sd">    %(fields)s</span>
-<span class="sd">} %(name)s;</span>
-<span class="sd">&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
-    <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">,</span> <span class="p">),</span>
-    <span class="s">&#39;fields&#39;</span><span class="p">:</span> <span class="s">&#39;</span><span class="se">\n\t</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
-<span class="p">}</span>
+<span class="sd">            typedef struct _%(name)s</span>
+<span class="sd">            {</span>
+<span class="sd">                %(fields)s</span>
+<span class="sd">            } %(name)s;</span>
+<span class="sd">            &#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">,</span> <span class="p">),</span>
+                <span class="s">&#39;fields&#39;</span><span class="p">:</span> <span class="s">&#39;</span><span class="se">\n\t</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
+            <span class="p">}</span>
         <span class="k">return</span> <span class="n">definition</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-27'>
+  <div class='section' id='section-24'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-27'>#</a>
+        <a class='octothorpe' href='#section-24'>#</a>
       </div>
       <p>Creates a c99 sizeof method.</p>
     </div>
@@ -417,10 +421,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-28'>
+  <div class='section' id='section-25'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-28'>#</a>
+        <a class='octothorpe' href='#section-25'>#</a>
       </div>
       
     </div>
@@ -436,10 +440,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-29'>
+  <div class='section' id='section-26'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-29'>#</a>
+        <a class='octothorpe' href='#section-26'>#</a>
       </div>
       <p>iterate over all components/subtypes</p>
     </div>
@@ -452,10 +456,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-30'>
+  <div class='section' id='section-27'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-30'>#</a>
+        <a class='octothorpe' href='#section-27'>#</a>
       </div>
       <p>determine the size of the scalar type</p>
     </div>
@@ -466,10 +470,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-31'>
+  <div class='section' id='section-28'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-31'>#</a>
+        <a class='octothorpe' href='#section-28'>#</a>
       </div>
       <p>determine the size of the complex type</p>
     </div>
@@ -482,10 +486,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-32'>
+  <div class='section' id='section-29'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-32'>#</a>
+        <a class='octothorpe' href='#section-29'>#</a>
       </div>
       <p>save which arguments and lines are required to determine the total size</p>
     </div>
@@ -496,10 +500,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-33'>
+  <div class='section' id='section-30'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-33'>#</a>
+        <a class='octothorpe' href='#section-30'>#</a>
       </div>
       <p>prepend the variable declarations to the source code</p>
     </div>
@@ -509,35 +513,35 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-34'>
+  <div class='section' id='section-31'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-34'>#</a>
+        <a class='octothorpe' href='#section-31'>#</a>
       </div>
       <p>fill the function template</p>
     </div>
     <div class='code'>
       <div class="highlight"><pre>        <span class="n">declaration</span> <span class="o">=</span> \
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">%(definition)s</span>
-<span class="sd">{</span>
-<span class="sd">    unsigned long size = 0;</span>
-<span class="sd">%(lines)s</span>
-<span class="sd">    return size;</span>
-<span class="sd">}</span>
-<span class="sd">&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
-    <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
-    <span class="s">&#39;cname&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
-    <span class="s">&#39;lines&#39;</span><span class="p">:</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span> <span class="o">+</span> <span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">])</span>
-<span class="p">}</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            %(definition)s</span>
+<span class="sd">            {</span>
+<span class="sd">                unsigned long size = 0;</span>
+<span class="sd">            %(lines)s</span>
+<span class="sd">                return size;</span>
+<span class="sd">            }</span>
+<span class="sd">            &#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
+                <span class="s">&#39;cname&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
+                <span class="s">&#39;lines&#39;</span><span class="p">:</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span> <span class="o">+</span> <span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">])</span>
+            <span class="p">}</span>
         <span class="k">return</span> <span class="n">definition</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">+</span> <span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="n">declaration</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-35'>
+  <div class='section' id='section-32'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-35'>#</a>
+        <a class='octothorpe' href='#section-32'>#</a>
       </div>
       <p>Returns the c99 deserializer function declaration, which separates the components of a flat type.</p>
     </div>
@@ -546,10 +550,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-36'>
+  <div class='section' id='section-33'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-36'>#</a>
+        <a class='octothorpe' href='#section-33'>#</a>
       </div>
       
     </div>
@@ -563,10 +567,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-37'>
+  <div class='section' id='section-34'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-37'>#</a>
+        <a class='octothorpe' href='#section-34'>#</a>
       </div>
       <p>iterate over all subtypes/components</p>
     </div>
@@ -579,10 +583,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-38'>
+  <div class='section' id='section-35'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-38'>#</a>
+        <a class='octothorpe' href='#section-35'>#</a>
       </div>
       <p>format</p>
     </div>
@@ -592,10 +596,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-39'>
+  <div class='section' id='section-36'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-39'>#</a>
+        <a class='octothorpe' href='#section-36'>#</a>
       </div>
       <p>used variable names</p>
     </div>
@@ -612,10 +616,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-40'>
+  <div class='section' id='section-37'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-40'>#</a>
+        <a class='octothorpe' href='#section-37'>#</a>
       </div>
       <p>add sizeof call of component</p>
     </div>
@@ -638,10 +642,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-41'>
+  <div class='section' id='section-38'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-41'>#</a>
+        <a class='octothorpe' href='#section-38'>#</a>
       </div>
       <p>determine offset of component</p>
     </div>
@@ -650,10 +654,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-42'>
+  <div class='section' id='section-39'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-42'>#</a>
+        <a class='octothorpe' href='#section-39'>#</a>
       </div>
       <p>set and cast component reference</p>
     </div>
@@ -671,10 +675,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-43'>
+  <div class='section' id='section-40'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-43'>#</a>
+        <a class='octothorpe' href='#section-40'>#</a>
       </div>
       <p>determine size of component</p>
     </div>
@@ -692,10 +696,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-44'>
+  <div class='section' id='section-41'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-44'>#</a>
+        <a class='octothorpe' href='#section-41'>#</a>
       </div>
       <p>fill function template</p>
     </div>
@@ -711,10 +715,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-45'>
+  <div class='section' id='section-42'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-45'>#</a>
+        <a class='octothorpe' href='#section-42'>#</a>
       </div>
       
     </div>
@@ -723,23 +727,29 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-46'>
+  <div class='section' id='section-43'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-46'>#</a>
+        <a class='octothorpe' href='#section-43'>#</a>
       </div>
       
     </div>
     <div class='code'>
       <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_cfunctions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">get_csizeof</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)])</span></pre></div>
+        <span class="n">functions</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">get_csizeof</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)]</span>
+
+        <span class="k">for</span> <span class="n">field</span><span class="p">,</span> <span class="n">dtype</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">subtypes</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">Blob</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">BlobEnum</span><span class="p">):</span>
+                <span class="n">functions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_caccessor</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">functions</span><span class="p">)</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-47'>
+  <div class='section' id='section-44'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-47'>#</a>
+        <a class='octothorpe' href='#section-44'>#</a>
       </div>
       <p>Returns the c99 declaration of the type.</p>
     </div>
@@ -748,10 +758,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-48'>
+  <div class='section' id='section-45'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-48'>#</a>
+        <a class='octothorpe' href='#section-45'>#</a>
       </div>
       
     </div>
@@ -760,22 +770,73 @@ It contains classes which generate c structs and functions for access to blob_ty
         <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">Blob</span><span class="o">.</span><span class="n">PADDING_FIELD_SUFFIX</span><span class="p">):</span>
                 <span class="k">continue</span>
-            <span class="n">field_definitions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">dtype_to_ctype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="n">field</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span>  <span class="n">field</span><span class="p">))</span>
+            <span class="n">field_definitions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">dtype_to_ctype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="n">field</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="n">field</span><span class="p">))</span>
         <span class="n">field_definitions</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">field_definitions</span><span class="p">)</span>
 
         <span class="n">definition</span> <span class="o">=</span> \
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">/* plain type %(cname)s */</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            /* plain type %(cname)s */</span>
 
-<span class="sd">typedef struct __attribute__((__packed__)) _%(cname)s</span>
-<span class="sd">{</span>
-<span class="sd">%(fields)s</span>
-<span class="sd">} %(cname)s;</span>
-<span class="sd">&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
-    <span class="s">&#39;fields&#39;</span><span class="p">:</span> <span class="n">field_definitions</span><span class="p">,</span>
-    <span class="s">&#39;cname&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
-<span class="p">}</span>
+<span class="sd">            typedef struct __attribute__((__packed__)) _%(cname)s</span>
+<span class="sd">            {</span>
+<span class="sd">            %(fields)s</span>
+<span class="sd">            } %(cname)s;</span>
+<span class="sd">            &#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;fields&#39;</span><span class="p">:</span> <span class="n">field_definitions</span><span class="p">,</span>
+                <span class="s">&#39;cname&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
+            <span class="p">}</span>
         <span class="k">return</span> <span class="n">definition</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-46'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-46'>#</a>
+      </div>
+      <p>Creates a c99 sizeof method.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_csizeof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-47'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-47'>#</a>
+      </div>
+      
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="n">definition</span> <span class="o">=</span> <span class="s">&#39;unsigned long </span><span class="si">%(function_name)s</span><span class="s">(</span><span class="si">%(address_space_qualifier)s</span><span class="s"> char* blob)&#39;</span> <span class="o">%</span> <span class="p">{</span>
+            <span class="s">&#39;function_name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_sizeof_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
+            <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span>
+        <span class="p">}</span>
+
+        <span class="n">declaration</span> <span class="o">=</span> \
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            %(definition)s</span>
+<span class="sd">            {</span>
+<span class="sd">                return sizeof(%(name)s);</span>
+<span class="sd">            };</span>
+<span class="sd">            &#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="p">,</span>
+                <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="n">definition</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">+</span> <span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="n">declaration</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-48'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-48'>#</a>
+      </div>
+      <p>Returns the c99 function name of the accessor function.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_accessor_cname</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -784,10 +845,10 @@ It contains classes which generate c structs and functions for access to blob_ty
       <div class='octowrap'>
         <a class='octothorpe' href='#section-49'>#</a>
       </div>
-      <p>Creates a c99 sizeof method.</p>
+      
     </div>
     <div class='code'>
-      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_csizeof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span></pre></div>
+      <div class="highlight"><pre>        <span class="k">return</span> <span class="s">&#39;get_</span><span class="si">%s</span><span class="s">_</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span> <span class="n">field</span><span class="p">)</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -799,22 +860,34 @@ It contains classes which generate c structs and functions for access to blob_ty
       
     </div>
     <div class='code'>
-      <div class="highlight"><pre>        <span class="n">definition</span> <span class="o">=</span> <span class="s">&#39;unsigned long </span><span class="si">%(function_name)s</span><span class="s">(</span><span class="si">%(address_space_qualifier)s</span><span class="s"> char* blob)&#39;</span> <span class="o">%</span> <span class="p">{</span>
-            <span class="s">&#39;function_name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_sizeof_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
+      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_caccessor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span>
+
+        <span class="n">child_name</span> <span class="o">=</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">get_spaced_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
+
+        <span class="n">definition</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%(child_name)s</span><span class="s"> * </span><span class="si">%(function_name)s</span><span class="s">(</span><span class="si">%(address_space_qualifier)s</span><span class="s"> </span><span class="si">%(cname)s</span><span class="s">* self)&#39;</span> <span class="o">%</span> <span class="p">{</span>
+            <span class="s">&#39;function_name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_accessor_cname</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">),</span>
+            <span class="s">&#39;cname&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
+            <span class="s">&#39;child_name&#39;</span><span class="p">:</span> <span class="n">child_name</span><span class="p">,</span>
             <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span>
         <span class="p">}</span>
 
+        <span class="n">field_chain</span> <span class="o">=</span> <span class="p">[</span><span class="n">field</span><span class="p">]</span>
+        <span class="n">current_dtype</span> <span class="o">=</span> <span class="n">dtype</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="n">numpy</span><span class="o">.</span><span class="n">issctype</span><span class="p">(</span><span class="n">current_dtype</span><span class="p">):</span>
+            <span class="n">subfield</span><span class="p">,</span> <span class="n">current_dtype</span> <span class="o">=</span> <span class="n">current_dtype</span><span class="o">.</span><span class="n">subtypes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">field_chain</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subfield</span><span class="p">)</span>
+
         <span class="n">declaration</span> <span class="o">=</span> \
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">%(definition)s</span>
-<span class="sd">{</span>
-<span class="sd">    return sizeof(%(name)s);</span>
-<span class="sd">};</span>
-<span class="sd">&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
-    <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="p">,</span>
-    <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
-<span class="p">}</span>
-        <span class="k">return</span> <span class="n">definition</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">+</span> <span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="n">declaration</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></pre></div>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            %(definition)s</span>
+<span class="sd">            {</span>
+<span class="sd">                return (%(child_name)s *)&amp;self-&gt;%(field)s;</span>
+<span class="sd">            };&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="p">,</span>
+                <span class="s">&#39;child_name&#39;</span><span class="p">:</span> <span class="n">child_name</span><span class="p">,</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;_&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">field_chain</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="n">definition</span> <span class="o">+</span> <span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="n">declaration</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -839,7 +912,6 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
     <div class='code'>
       <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_cfunctions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span>
-
         <span class="k">return</span> <span class="p">[],</span> <span class="p">[]</span></pre></div>
     </div>
   </div>
@@ -859,25 +931,26 @@ It contains classes which generate c structs and functions for access to blob_ty
         <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">field</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">fields</span><span class="p">):</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">field</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">field</span> <span class="o">=</span> <span class="n">BlobEnum</span><span class="o">.</span><span class="n">UNDEFINED</span>
-            <span class="n">constant</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">,</span> <span class="n">clean</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="o">+</span><span class="s">&#39;_&#39;</span><span class="o">+</span><span class="n">camel_case_to_underscore</span><span class="p">(</span><span class="n">field</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="n">constant</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">,</span> <span class="n">clean</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">+</span> <span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="n">camel_case_to_underscore</span><span class="p">(</span>
+                <span class="n">field</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
             <span class="n">field_definitions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="si">%s</span><span class="s"> = </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">camel_case_to_underscore</span><span class="p">(</span><span class="n">field</span><span class="p">),</span> <span class="n">constant</span><span class="p">))</span>
             <span class="n">field_constants</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;#define </span><span class="si">%s</span><span class="s"> </span><span class="si">%d</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">constant</span><span class="p">,</span> <span class="n">index</span><span class="p">))</span>
 
         <span class="k">return</span> \
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">/* enum type %(cname)s */</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            /* enum type %(cname)s */</span>
 
-<span class="sd">%(field_constants)s</span>
+<span class="sd">            %(field_constants)s</span>
 
-<span class="sd">typedef enum _%(cname)s</span>
-<span class="sd">{</span>
-<span class="sd">%(static_fields)s</span>
-<span class="sd">} %(cname)s;</span>
-<span class="sd">&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
-    <span class="s">&#39;field_constants&#39;</span><span class="p">:</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">field_constants</span><span class="p">),</span>
-    <span class="s">&#39;static_fields&#39;</span><span class="p">:</span> <span class="s">&#39;,</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">field_definitions</span><span class="p">),</span>
-    <span class="s">&#39;cname&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
-<span class="p">}</span></pre></div>
+<span class="sd">            typedef enum _%(cname)s</span>
+<span class="sd">            {</span>
+<span class="sd">            %(static_fields)s</span>
+<span class="sd">            } %(cname)s;</span>
+<span class="sd">            &#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;field_constants&#39;</span><span class="p">:</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">field_constants</span><span class="p">),</span>
+                <span class="s">&#39;static_fields&#39;</span><span class="p">:</span> <span class="s">&#39;,</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">field_definitions</span><span class="p">),</span>
+                <span class="s">&#39;cname&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
+            <span class="p">}</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -890,7 +963,6 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
     <div class='code'>
       <div class="highlight"><pre><span class="k">class</span> <span class="nc">BlobArrayInterface</span><span class="p">(</span><span class="n">BlobComplexInterface</span><span class="p">):</span>
-
     <span class="n">FIRST_ITEM_FIELD</span> <span class="o">=</span> <span class="s">&#39;first&#39;</span></pre></div>
     </div>
   </div>
@@ -904,12 +976,12 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
     <div class='code'>
       <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_cfunctions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span>
-
-        <span class="k">return</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">[</span>
+        <span class="n">functions</span> <span class="o">=</span> <span class="p">[</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">get_csizeof</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">get_cdeserializer</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">get_citem</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
-        <span class="p">])</span></pre></div>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">functions</span><span class="p">)</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -935,25 +1007,25 @@ It contains classes which generate c structs and functions for access to blob_ty
     <div class='code'>
       <div class="highlight"><pre>        <span class="n">field_definitions</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">field</span><span class="p">,</span> <span class="n">subdtype</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">dtype_static_components</span><span class="p">:</span>
-            <span class="n">field_definitions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">* </span><span class="si">%s</span><span class="s">;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">,</span> <span class="n">dtype_to_ctype</span><span class="p">(</span><span class="n">subdtype</span><span class="p">),</span>  <span class="n">field</span><span class="p">))</span>
+            <span class="n">field_definitions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">* </span><span class="si">%s</span><span class="s">;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">,</span> <span class="n">dtype_to_ctype</span><span class="p">(</span><span class="n">subdtype</span><span class="p">),</span> <span class="n">field</span><span class="p">))</span>
 
         <span class="n">child_name</span> <span class="o">=</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">child_type</span><span class="p">)</span><span class="o">.</span><span class="n">get_spaced_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
 
         <span class="k">return</span> \
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">/* array type %(name)s */</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            /* array type %(name)s */</span>
 
-<span class="sd">typedef struct __attribute__((__packed__)) _%(name)s</span>
-<span class="sd">{</span>
-<span class="sd">%(static_fields)s</span>
-<span class="sd">    %(address_space_qualifier)s char* %(first_item_field)s;</span>
-<span class="sd">} %(name)s;&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
-    <span class="s">&#39;static_fields&#39;</span><span class="p">:</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">field_definitions</span><span class="p">),</span>
-    <span class="s">&#39;first_item_field&#39;</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIRST_ITEM_FIELD</span><span class="p">,</span>
-    <span class="s">&#39;child_name&#39;</span><span class="p">:</span> <span class="n">child_name</span><span class="p">,</span>
-    <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span><span class="p">,</span>
-    <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
-<span class="p">}</span></pre></div>
+<span class="sd">            typedef struct __attribute__((__packed__)) _%(name)s</span>
+<span class="sd">            {</span>
+<span class="sd">            %(static_fields)s</span>
+<span class="sd">                %(address_space_qualifier)s char* %(first_item_field)s;</span>
+<span class="sd">            } %(name)s;&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;static_fields&#39;</span><span class="p">:</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">field_definitions</span><span class="p">),</span>
+                <span class="s">&#39;first_item_field&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIRST_ITEM_FIELD</span><span class="p">,</span>
+                <span class="s">&#39;child_name&#39;</span><span class="p">:</span> <span class="n">child_name</span><span class="p">,</span>
+                <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span><span class="p">,</span>
+                <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
+            <span class="p">}</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -972,24 +1044,25 @@ It contains classes which generate c structs and functions for access to blob_ty
         <span class="p">}</span>
 
         <span class="n">declaration</span> <span class="o">=</span> \
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">%(definition)s</span>
-<span class="sd">{</span>
-<span class="sd">    int capacity = *((%(address_space_qualifier)s int*) blob);</span>
-<span class="sd">    unsigned long static_fields_space = %(static_fields_space)s;</span>
-<span class="sd">    unsigned long sizeof_child = %(child_sizeof_cname)s(blob + static_fields_space);</span>
-<span class="sd">    unsigned long items_space = capacity * sizeof_child;</span>
-<span class="sd">    return static_fields_space + items_space;</span>
-<span class="sd">};</span>
-<span class="sd">&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
-    <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
-    <span class="s">&#39;static_fields_space&#39;</span><span class="p">:</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">STATIC_FIELDS_BYTES</span><span class="p">,</span>
-    <span class="s">&#39;capacity_field&#39;</span><span class="p">:</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">CAPACITY_FIELD</span><span class="p">,</span>
-    <span class="s">&#39;first_item_field&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIRST_ITEM_FIELD</span><span class="p">,</span>
-    <span class="s">&#39;child_sizeof_cname&#39;</span><span class="p">:</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">child_type</span><span class="p">)</span><span class="o">.</span><span class="n">get_sizeof_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
-    <span class="s">&#39;child_cname&#39;</span><span class="p">:</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">child_type</span><span class="p">)</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
-    <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span><span class="p">,</span>
-<span class="p">}</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            %(definition)s</span>
+<span class="sd">            {</span>
+<span class="sd">                int capacity = *((%(address_space_qualifier)s int*) blob);</span>
+<span class="sd">                unsigned long static_fields_space = %(static_fields_space)s;</span>
+<span class="sd">                unsigned long sizeof_child = %(child_sizeof_cname)s(blob + static_fields_space);</span>
+<span class="sd">                unsigned long items_space = capacity * sizeof_child;</span>
+<span class="sd">                return static_fields_space + items_space;</span>
+<span class="sd">            };</span>
+<span class="sd">            &#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
+                <span class="s">&#39;static_fields_space&#39;</span><span class="p">:</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">STATIC_FIELDS_BYTES</span><span class="p">,</span>
+                <span class="s">&#39;capacity_field&#39;</span><span class="p">:</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">CAPACITY_FIELD</span><span class="p">,</span>
+                <span class="s">&#39;first_item_field&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIRST_ITEM_FIELD</span><span class="p">,</span>
+                <span class="s">&#39;child_sizeof_cname&#39;</span><span class="p">:</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">child_type</span><span class="p">)</span><span class="o">.</span><span class="n">get_sizeof_cname</span><span class="p">(</span>
+                    <span class="n">address_space_qualifier</span><span class="p">),</span>
+                <span class="s">&#39;child_cname&#39;</span><span class="p">:</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">child_type</span><span class="p">)</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
+                <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span><span class="p">,</span>
+            <span class="p">}</span>
         <span class="k">return</span> <span class="n">definition</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">+</span> <span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="n">declaration</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></pre></div>
     </div>
   </div>
@@ -1020,20 +1093,20 @@ It contains classes which generate c structs and functions for access to blob_ty
             <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span>
         <span class="p">}</span>
         <span class="n">declaration</span> <span class="o">=</span> \
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">%(definition)s</span>
-<span class="sd">{</span>
-<span class="sd">    self-&gt;%(capacity_field)s = (%(address_space_qualifier)s int*)(blob);</span>
-<span class="sd">    self-&gt;%(count_field)s = (%(address_space_qualifier)s int*)(blob + %(static_fields_space)s / 2);</span>
-<span class="sd">    self-&gt;%(first_item_field)s = blob + %(static_fields_space)s;</span>
-<span class="sd">};&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
-    <span class="s">&#39;definition&#39;</span> <span class="p">:</span> <span class="n">definition</span><span class="p">,</span>
-    <span class="s">&#39;static_fields_space&#39;</span><span class="p">:</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">STATIC_FIELDS_BYTES</span><span class="p">,</span>
-    <span class="s">&#39;capacity_field&#39;</span><span class="p">:</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">CAPACITY_FIELD</span><span class="p">,</span>
-    <span class="s">&#39;count_field&#39;</span><span class="p">:</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">COUNT_FIELD_NAME</span><span class="p">,</span>
-    <span class="s">&#39;first_item_field&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIRST_ITEM_FIELD</span><span class="p">,</span>
-    <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span><span class="p">,</span>
-<span class="p">}</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            %(definition)s</span>
+<span class="sd">            {</span>
+<span class="sd">                self-&gt;%(capacity_field)s = (%(address_space_qualifier)s int*)(blob);</span>
+<span class="sd">                self-&gt;%(count_field)s = (%(address_space_qualifier)s int*)(blob + %(static_fields_space)s / 2);</span>
+<span class="sd">                self-&gt;%(first_item_field)s = blob + %(static_fields_space)s;</span>
+<span class="sd">            };&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="p">,</span>
+                <span class="s">&#39;static_fields_space&#39;</span><span class="p">:</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">STATIC_FIELDS_BYTES</span><span class="p">,</span>
+                <span class="s">&#39;capacity_field&#39;</span><span class="p">:</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">CAPACITY_FIELD</span><span class="p">,</span>
+                <span class="s">&#39;count_field&#39;</span><span class="p">:</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">COUNT_FIELD_NAME</span><span class="p">,</span>
+                <span class="s">&#39;first_item_field&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIRST_ITEM_FIELD</span><span class="p">,</span>
+                <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span><span class="p">,</span>
+            <span class="p">}</span>
         <span class="k">return</span> <span class="n">definition</span> <span class="o">+</span> <span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="n">declaration</span></pre></div>
     </div>
   </div>
@@ -1058,7 +1131,7 @@ It contains classes which generate c structs and functions for access to blob_ty
       
     </div>
     <div class='code'>
-      <div class="highlight"><pre>        <span class="k">return</span> <span class="s">&#39;item_</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">child_type</span><span class="p">)</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span></pre></div>
+      <div class="highlight"><pre>        <span class="k">return</span> <span class="s">&#39;get_</span><span class="si">%s</span><span class="s">_item&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -1111,19 +1184,25 @@ It contains classes which generate c structs and functions for access to blob_ty
         <span class="n">child_sizeof_name</span> <span class="o">=</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">child_type</span><span class="p">)</span><span class="o">.</span><span class="n">get_sizeof_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
 
         <span class="n">declaration</span> <span class="o">=</span> \
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">%(definition)s</span>
-<span class="sd">{</span>
-<span class="sd">    if(index &lt; 0)</span>
-<span class="sd">        return 0;</span>
-<span class="sd">    if(index &gt;= *array.capacity)</span>
-<span class="sd">        return 0;</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            %(definition)s</span>
+<span class="sd">            {</span>
+<span class="sd">                if(index &lt; 0)</span>
+<span class="sd">                    return 0;</span>
+<span class="sd">                if(index &gt;= *array.capacity)</span>
+<span class="sd">                    return 0;</span>
 
-<span class="sd">    unsigned long offset = index * %(sizeof_function)s(array.%(first_item_field)s);</span>
-<span class="sd">    %(address_space_qualifier)s char* item_blob = array.%(first_item_field)s + offset;</span>
-<span class="sd">    return (%(child_name)s *)item_blob;</span>
-<span class="sd">};&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
-    <span class="s">&#39;definition&#39;</span> <span class="p">:</span> <span class="n">definition</span><span class="p">,</span></pre></div>
+<span class="sd">                unsigned long offset = index * %(sizeof_function)s(array.%(first_item_field)s);</span>
+<span class="sd">                %(address_space_qualifier)s char* item_blob = array.%(first_item_field)s + offset;</span>
+<span class="sd">                return (%(child_name)s *)item_blob;</span>
+<span class="sd">            };&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="p">,</span>
+                <span class="s">&#39;sizeof_function&#39;</span><span class="p">:</span> <span class="n">child_sizeof_name</span><span class="p">,</span>
+                <span class="s">&#39;first_item_field&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIRST_ITEM_FIELD</span><span class="p">,</span>
+                <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span><span class="p">,</span>
+                <span class="s">&#39;child_name&#39;</span><span class="p">:</span> <span class="n">child_name</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="n">definition</span> <span class="o">+</span> <span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="n">declaration</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -1131,23 +1210,6 @@ It contains classes which generate c structs and functions for access to blob_ty
     <div class='docs'>
       <div class='octowrap'>
         <a class='octothorpe' href='#section-66'>#</a>
-      </div>
-      <p>'static_fields_space': BlobArray.STATIC_FIELDS_BYTES,</p>
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>    <span class="s">&#39;sizeof_function&#39;</span><span class="p">:</span> <span class="n">child_sizeof_name</span><span class="p">,</span>
-    <span class="s">&#39;first_item_field&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIRST_ITEM_FIELD</span><span class="p">,</span>
-    <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span><span class="p">,</span>
-    <span class="s">&#39;child_name&#39;</span><span class="p">:</span> <span class="n">child_name</span>
-<span class="p">}</span>
-        <span class="k">return</span> <span class="n">definition</span> <span class="o">+</span> <span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="n">declaration</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-67'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-67'>#</a>
       </div>
       
     </div>
@@ -1163,24 +1225,36 @@ It contains classes which generate c structs and functions for access to blob_ty
         <span class="p">}</span>
 
         <span class="n">child_sizeof_name</span> <span class="o">=</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">child_type</span><span class="p">)</span><span class="o">.</span><span class="n">get_sizeof_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
-        <span class="n">child_deserialize_name</span> <span class="o">=</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">child_type</span><span class="p">)</span><span class="o">.</span><span class="n">get_deserialize_cname</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
+        <span class="n">child_deserialize_name</span> <span class="o">=</span> <span class="n">BlobLib</span><span class="o">.</span><span class="n">get_interface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">child_type</span><span class="p">)</span><span class="o">.</span><span class="n">get_deserialize_cname</span><span class="p">(</span>
+            <span class="n">address_space_qualifier</span><span class="p">)</span>
 
         <span class="n">declaration</span> <span class="o">=</span> \
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">%(definition)s</span>
-<span class="sd">{</span>
-<span class="sd">    unsigned long offset = index * %(sizeof_function)s(array.%(first_item_field)s);</span>
-<span class="sd">    %(address_space_qualifier)s char* item_blob = array.%(first_item_field)s + offset;</span>
-<span class="sd">    %(child_deserialize_name)s(item_blob, item);</span>
-<span class="sd">};&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
-    <span class="s">&#39;definition&#39;</span> <span class="p">:</span> <span class="n">definition</span><span class="p">,</span>
-    <span class="s">&#39;sizeof_function&#39;</span><span class="p">:</span> <span class="n">child_sizeof_name</span><span class="p">,</span>
-    <span class="s">&#39;first_item_field&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIRST_ITEM_FIELD</span><span class="p">,</span>
-    <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span><span class="p">,</span>
-    <span class="s">&#39;child_name&#39;</span><span class="p">:</span> <span class="n">child_name</span><span class="p">,</span>
-    <span class="s">&#39;child_deserialize_name&#39;</span><span class="p">:</span> <span class="n">child_deserialize_name</span>
-<span class="p">}</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            %(definition)s</span>
+<span class="sd">            {</span>
+<span class="sd">                unsigned long offset = index * %(sizeof_function)s(array.%(first_item_field)s);</span>
+<span class="sd">                %(address_space_qualifier)s char* item_blob = array.%(first_item_field)s + offset;</span>
+<span class="sd">                %(child_deserialize_name)s(item_blob, item);</span>
+<span class="sd">            };&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+                <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="p">,</span>
+                <span class="s">&#39;sizeof_function&#39;</span><span class="p">:</span> <span class="n">child_sizeof_name</span><span class="p">,</span>
+                <span class="s">&#39;first_item_field&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">FIRST_ITEM_FIELD</span><span class="p">,</span>
+                <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span><span class="p">,</span>
+                <span class="s">&#39;child_deserialize_name&#39;</span><span class="p">:</span> <span class="n">child_deserialize_name</span>
+            <span class="p">}</span>
         <span class="k">return</span> <span class="n">definition</span> <span class="o">+</span> <span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="n">declaration</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-67'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-67'>#</a>
+      </div>
+      <p>Generates C-code which allows to work with the serialized blob data.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">class</span> <span class="nc">BlobLib</span><span class="p">(</span><span class="n">Lib</span><span class="p">):</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -1189,18 +1263,6 @@ It contains classes which generate c structs and functions for access to blob_ty
       <div class='octowrap'>
         <a class='octothorpe' href='#section-68'>#</a>
       </div>
-      <p>Generates C-code which allows to work with the serialized blob data.</p>
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre><span class="k">class</span> <span class="nc">BlobLib</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-69'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-69'>#</a>
-      </div>
       
     </div>
     <div class='code'>
@@ -1208,10 +1270,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-70'>
+  <div class='section' id='section-69'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-70'>#</a>
+        <a class='octothorpe' href='#section-69'>#</a>
       </div>
       
     </div>
@@ -1232,12 +1294,22 @@ It contains classes which generate c structs and functions for access to blob_ty
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">BlobComplexInterface</span><span class="p">(</span><span class="n">blob_type</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-                 <span class="n">device</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
-                 <span class="n">required_constant_blob_types</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
-                 <span class="n">required_global_blob_types</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
-                 <span class="n">header_header</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">,</span>
-                 <span class="n">header_footer</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">header_code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_header_code</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">source_code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_code</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+            <span class="n">required_constant_blob_types</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+            <span class="n">required_global_blob_types</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+            <span class="n">header_header</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">,</span>
+            <span class="n">header_footer</span><span class="o">=</span><span class="s">&#39;&#39;</span>
+    <span class="p">):</span>
 
         <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
             <span class="n">device</span> <span class="o">=</span> <span class="n">opencl</span><span class="o">.</span><span class="n">create_some_context</span><span class="p">(</span><span class="bp">False</span><span class="p">)</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="n">opencl</span><span class="o">.</span><span class="n">context_info</span><span class="o">.</span><span class="n">DEVICES</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
@@ -1259,10 +1331,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-71'>
+  <div class='section' id='section-70'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-71'>#</a>
+        <a class='octothorpe' href='#section-70'>#</a>
       </div>
       <p>check dependencies</p>
     </div>
@@ -1271,10 +1343,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-72'>
+  <div class='section' id='section-71'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-72'>#</a>
+        <a class='octothorpe' href='#section-71'>#</a>
       </div>
       <p>generate header</p>
     </div>
@@ -1284,10 +1356,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-73'>
+  <div class='section' id='section-72'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-73'>#</a>
+        <a class='octothorpe' href='#section-72'>#</a>
       </div>
       <p>ignore duplicates</p>
     </div>
@@ -1300,10 +1372,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-74'>
+  <div class='section' id='section-73'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-74'>#</a>
+        <a class='octothorpe' href='#section-73'>#</a>
       </div>
       <p>get interface</p>
     </div>
@@ -1312,16 +1384,17 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-75'>
+  <div class='section' id='section-74'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-75'>#</a>
+        <a class='octothorpe' href='#section-74'>#</a>
       </div>
       <p>add type definition</p>
     </div>
     <div class='code'>
       <div class="highlight"><pre>                <span class="k">if</span> <span class="n">implode_float_n</span><span class="p">:</span>
-                    <span class="n">type_definition</span> <span class="o">=</span> <span class="n">implode_floatn</span><span class="p">(</span><span class="n">blob_type_interface</span><span class="o">.</span><span class="n">get_ctype</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="o">=</span><span class="n">address_space_qualifier</span><span class="p">))</span>
+                    <span class="n">type_definition</span> <span class="o">=</span> <span class="n">implode_floatn</span><span class="p">(</span>
+                        <span class="n">blob_type_interface</span><span class="o">.</span><span class="n">get_ctype</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="o">=</span><span class="n">address_space_qualifier</span><span class="p">))</span>
 
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">type_definition</span> <span class="o">=</span> <span class="p">(</span><span class="n">blob_type_interface</span><span class="o">.</span><span class="n">get_ctype</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="o">=</span><span class="n">address_space_qualifier</span><span class="p">))</span>
@@ -1330,26 +1403,29 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-76'>
+  <div class='section' id='section-75'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-76'>#</a>
+        <a class='octothorpe' href='#section-75'>#</a>
       </div>
       <p>add function definitions and declarations</p>
     </div>
     <div class='code'>
-      <div class="highlight"><pre>                <span class="n">function_definitions</span><span class="p">,</span> <span class="n">function_declarations</span> <span class="o">=</span> <span class="n">blob_type_interface</span><span class="o">.</span><span class="n">get_cfunctions</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="o">=</span><span class="n">address_space_qualifier</span><span class="p">)</span>
+      <div class="highlight"><pre>                <span class="n">function_definitions</span><span class="p">,</span> <span class="n">function_declarations</span> <span class="o">=</span> <span class="n">blob_type_interface</span><span class="o">.</span><span class="n">get_cfunctions</span><span class="p">(</span>
+                    <span class="n">address_space_qualifier</span><span class="o">=</span><span class="n">address_space_qualifier</span>
+                <span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">function_definitions</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">function_definitions</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">function_declarations</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">function_declarations</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">header_code</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_header_code</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span>
             <span class="s">&#39;/* header generated by </span><span class="si">%s</span><span class="s"> */&#39;</span> <span class="o">%</span> <span class="n">__file__</span><span class="p">,</span>
             <span class="n">header_header</span><span class="p">,</span>
             <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">strip</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_definitions</span><span class="p">)),</span>
             <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">strip</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_definitions</span><span class="p">)),</span>
             <span class="n">header_footer</span>
         <span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">source_code</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_source_code</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span>
             <span class="s">&#39;/* source generated by </span><span class="si">%s</span><span class="s"> */&#39;</span> <span class="o">%</span> <span class="n">__file__</span><span class="p">,</span>
             <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">strip</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_declarations</span><span class="p">))</span>
         <span class="p">])</span>
