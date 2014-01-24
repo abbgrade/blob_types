@@ -22,14 +22,47 @@ def walk_dependencies(dependencies):
             elif numpy.issctype(blob_type):
                 pass
             else:
-                assert False, 'blob_type must be a subclass of blob_types.Blob or a numpy.dtype not: %s' % type(blob_type)
+                assert False, 'blob_type must be a subclass of blob_types.Blob or a numpy.dtype not: %s' % type(
+                    blob_type)
 
     blob_types.extend(filter(lambda blob_type_: issubclass(blob_type_, Blob), dependencies))
     return blob_types
 
 
-class BlobInterface(object):
+class Lib(object):
+    @property
+    def header_code(self):
+        header_code = '\n\n'.join([dependency.header_code for dependency in self.dependecies])
 
+        if self.header_code_path:
+            with open(self.header_code_path) as file_handle:
+                header_code += '\n\n' + file_handle.read()
+
+        return header_code
+
+    @property
+    def source_code(self):
+        source_code = '\n\n'.join([dependency.source_code for dependency in self.dependecies])
+
+        if self.source_code_path:
+            with open(self.source_code_path) as file_handle:
+                source_code += '\n\n' + file_handle.read()
+
+        return source_code
+
+    def __init__(self, dependencies=[], code_path=None):
+        self.dependecies = dependencies
+
+        if code_path:
+            self.header_code_path = '%s.h' % code_path
+            self.source_code_path = '%s.cl' % code_path
+
+        else:
+            self.header_code_path = None
+            self.source_code_path = None
+
+
+class BlobInterface(object):
     def __init__(self, blob_type):
         assert issubclass(blob_type, Blob)
         self.blob_type = blob_type
@@ -86,7 +119,6 @@ class BlobInterface(object):
 
 
 class BlobComplexInterface(BlobInterface):
-
     def get_cfunctions(self, address_space_qualifier):
 
         return zip(*[
@@ -125,17 +157,17 @@ class BlobComplexInterface(BlobInterface):
                     ))
 
         definition = \
-'''
-/* complex type %(name)s */
+            '''
+            /* complex type %(name)s */
 
-typedef struct _%(name)s
-{
-    %(fields)s
-} %(name)s;
-''' % {
-    'name': self.get_cname(address_space_qualifier, ),
-    'fields': '\n\t'.join(fields)
-}
+            typedef struct _%(name)s
+            {
+                %(fields)s
+            } %(name)s;
+            ''' % {
+                'name': self.get_cname(address_space_qualifier, ),
+                'fields': '\n\t'.join(fields)
+            }
         return definition
 
     def get_csizeof(self, address_space_qualifier):
@@ -178,18 +210,18 @@ typedef struct _%(name)s
 
         # fill the function template
         declaration = \
-'''
-%(definition)s
-{
-    unsigned long size = 0;
-%(lines)s
-    return size;
-}
-''' % {
-    'definition': definition.strip(),
-    'cname': self.get_cname(address_space_qualifier),
-    'lines': '\n'.join(['\t' + line for line in lines])
-}
+            '''
+            %(definition)s
+            {
+                unsigned long size = 0;
+            %(lines)s
+                return size;
+            }
+            ''' % {
+                'definition': definition.strip(),
+                'cname': self.get_cname(address_space_qualifier),
+                'lines': '\n'.join(['\t' + line for line in lines])
+            }
         return definition.strip() + ';', declaration.strip()
 
     def get_cdeserializer(self, address_space_qualifier):
@@ -279,9 +311,14 @@ typedef struct _%(name)s
 
 
 class BlobPlainInterface(BlobInterface):
-
     def get_cfunctions(self, address_space_qualifier):
-        return zip(*[self.get_csizeof(address_space_qualifier)])
+        functions = [self.get_csizeof(address_space_qualifier)]
+
+        for field, dtype in self.blob_type.subtypes:
+            if type(dtype) and issubclass(dtype, Blob) and not issubclass(dtype, BlobEnum):
+                functions.append(self.get_caccessor(field, dtype, address_space_qualifier))
+
+        return zip(*functions)
 
     def get_ctype(self, address_space_qualifier):
         """Returns the c99 declaration of the type."""
@@ -290,21 +327,21 @@ class BlobPlainInterface(BlobInterface):
         for field in self.blob_type.dtype.names:
             if field.endswith(Blob.PADDING_FIELD_SUFFIX):
                 continue
-            field_definitions.append('\t%s %s;' % (dtype_to_ctype(self.blob_type.dtype.fields[field][0]),  field))
+            field_definitions.append('\t%s %s;' % (dtype_to_ctype(self.blob_type.dtype.fields[field][0]), field))
         field_definitions = '\n'.join(field_definitions)
 
         definition = \
-'''
-/* plain type %(cname)s */
+            '''
+            /* plain type %(cname)s */
 
-typedef struct __attribute__((__packed__)) _%(cname)s
-{
-%(fields)s
-} %(cname)s;
-''' % {
-    'fields': field_definitions,
-    'cname': self.get_cname(address_space_qualifier)
-}
+            typedef struct __attribute__((__packed__)) _%(cname)s
+            {
+            %(fields)s
+            } %(cname)s;
+            ''' % {
+                'fields': field_definitions,
+                'cname': self.get_cname(address_space_qualifier)
+            }
         return definition.strip()
 
     def get_csizeof(self, address_space_qualifier):
@@ -316,22 +353,54 @@ typedef struct __attribute__((__packed__)) _%(cname)s
         }
 
         declaration = \
-'''
-%(definition)s
-{
-    return sizeof(%(name)s);
-};
-''' % {
-    'definition': definition,
-    'name': self.get_cname(address_space_qualifier),
-}
+            '''
+            %(definition)s
+            {
+                return sizeof(%(name)s);
+            };
+            ''' % {
+                'definition': definition,
+                'name': self.get_cname(address_space_qualifier),
+            }
         return definition.strip() + ';', declaration.strip()
+
+    def get_accessor_cname(self, field, address_space_qualifier):
+        """Returns the c99 function name of the accessor function."""
+
+        return 'get_%s_%s' % (self.get_cname(address_space_qualifier), field)
+
+    def get_caccessor(self, field, dtype, address_space_qualifier):
+
+        child_name = BlobLib.get_interface(dtype).get_spaced_cname(address_space_qualifier)
+
+        definition = '%(child_name)s * %(function_name)s(%(address_space_qualifier)s %(cname)s* self)' % {
+            'function_name': self.get_accessor_cname(field, address_space_qualifier),
+            'cname': self.get_cname(address_space_qualifier),
+            'child_name': child_name,
+            'address_space_qualifier': address_space_qualifier
+        }
+
+        field_chain = [field]
+        current_dtype = dtype
+        while not numpy.issctype(current_dtype):
+            subfield, current_dtype = current_dtype.subtypes[0]
+            field_chain.append(subfield)
+
+        declaration = \
+            '''
+            %(definition)s
+            {
+                return (%(child_name)s *)&self->%(field)s;
+            };''' % {
+                'definition': definition,
+                'child_name': child_name,
+                'field': '_'.join(field_chain)
+            }
+        return definition + ';', declaration
 
 
 class BlobEnumInterface(BlobPlainInterface):
-
     def get_cfunctions(self, address_space_qualifier):
-
         return [], []
 
     def get_ctype(self, address_space_qualifier):
@@ -341,63 +410,63 @@ class BlobEnumInterface(BlobPlainInterface):
         for index, field in enumerate(self.blob_type.fields):
             if len(field) == 0:
                 field = BlobEnum.UNDEFINED
-            constant = self.get_cname(address_space_qualifier, clean=True).upper()+'_'+camel_case_to_underscore(field).upper()
+            constant = self.get_cname(address_space_qualifier, clean=True).upper() + '_' + camel_case_to_underscore(
+                field).upper()
             field_definitions.append('\t%s = %s' % (camel_case_to_underscore(field), constant))
             field_constants.append('#define %s %d' % (constant, index))
 
         return \
-'''
-/* enum type %(cname)s */
+            '''
+            /* enum type %(cname)s */
 
-%(field_constants)s
+            %(field_constants)s
 
-typedef enum _%(cname)s
-{
-%(static_fields)s
-} %(cname)s;
-''' % {
-    'field_constants': '\n'.join(field_constants),
-    'static_fields': ',\n'.join(field_definitions),
-    'cname': self.get_cname(address_space_qualifier)
-}
+            typedef enum _%(cname)s
+            {
+            %(static_fields)s
+            } %(cname)s;
+            ''' % {
+                'field_constants': '\n'.join(field_constants),
+                'static_fields': ',\n'.join(field_definitions),
+                'cname': self.get_cname(address_space_qualifier)
+            }
 
 
 class BlobArrayInterface(BlobComplexInterface):
-
     FIRST_ITEM_FIELD = 'first'
 
     def get_cfunctions(self, address_space_qualifier):
-
-        return zip(*[
+        functions = [
             self.get_csizeof(address_space_qualifier),
             self.get_cdeserializer(address_space_qualifier),
             self.get_citem(address_space_qualifier)
-        ])
+        ]
+        return zip(*functions)
 
     def get_ctype(self, address_space_qualifier):
         """Returns the c99 struct declaration."""
 
         field_definitions = []
         for field, subdtype in self.blob_type.dtype_static_components:
-            field_definitions.append('\t%s %s* %s;' % (address_space_qualifier, dtype_to_ctype(subdtype),  field))
+            field_definitions.append('\t%s %s* %s;' % (address_space_qualifier, dtype_to_ctype(subdtype), field))
 
         child_name = BlobLib.get_interface(self.blob_type.child_type).get_spaced_cname(address_space_qualifier)
 
         return \
-'''
-/* array type %(name)s */
+            '''
+            /* array type %(name)s */
 
-typedef struct __attribute__((__packed__)) _%(name)s
-{
-%(static_fields)s
-    %(address_space_qualifier)s char* %(first_item_field)s;
-} %(name)s;''' % {
-    'static_fields': '\n'.join(field_definitions),
-    'first_item_field' : self.FIRST_ITEM_FIELD,
-    'child_name': child_name,
-    'address_space_qualifier': address_space_qualifier,
-    'name': self.get_cname(address_space_qualifier)
-}
+            typedef struct __attribute__((__packed__)) _%(name)s
+            {
+            %(static_fields)s
+                %(address_space_qualifier)s char* %(first_item_field)s;
+            } %(name)s;''' % {
+                'static_fields': '\n'.join(field_definitions),
+                'first_item_field': self.FIRST_ITEM_FIELD,
+                'child_name': child_name,
+                'address_space_qualifier': address_space_qualifier,
+                'name': self.get_cname(address_space_qualifier)
+            }
 
     def get_csizeof(self, address_space_qualifier):
         definition = 'unsigned long %(function_name)s(%(address_space_qualifier)s char* blob)' % {
@@ -406,24 +475,25 @@ typedef struct __attribute__((__packed__)) _%(name)s
         }
 
         declaration = \
-'''
-%(definition)s
-{
-    int capacity = *((%(address_space_qualifier)s int*) blob);
-    unsigned long static_fields_space = %(static_fields_space)s;
-    unsigned long sizeof_child = %(child_sizeof_cname)s(blob + static_fields_space);
-    unsigned long items_space = capacity * sizeof_child;
-    return static_fields_space + items_space;
-};
-''' % {
-    'definition': definition.strip(),
-    'static_fields_space': BlobArray.STATIC_FIELDS_BYTES,
-    'capacity_field': BlobArray.CAPACITY_FIELD,
-    'first_item_field': self.FIRST_ITEM_FIELD,
-    'child_sizeof_cname': BlobLib.get_interface(self.blob_type.child_type).get_sizeof_cname(address_space_qualifier),
-    'child_cname': BlobLib.get_interface(self.blob_type.child_type).get_cname(address_space_qualifier),
-    'address_space_qualifier': address_space_qualifier,
-}
+            '''
+            %(definition)s
+            {
+                int capacity = *((%(address_space_qualifier)s int*) blob);
+                unsigned long static_fields_space = %(static_fields_space)s;
+                unsigned long sizeof_child = %(child_sizeof_cname)s(blob + static_fields_space);
+                unsigned long items_space = capacity * sizeof_child;
+                return static_fields_space + items_space;
+            };
+            ''' % {
+                'definition': definition.strip(),
+                'static_fields_space': BlobArray.STATIC_FIELDS_BYTES,
+                'capacity_field': BlobArray.CAPACITY_FIELD,
+                'first_item_field': self.FIRST_ITEM_FIELD,
+                'child_sizeof_cname': BlobLib.get_interface(self.blob_type.child_type).get_sizeof_cname(
+                    address_space_qualifier),
+                'child_cname': BlobLib.get_interface(self.blob_type.child_type).get_cname(address_space_qualifier),
+                'address_space_qualifier': address_space_qualifier,
+            }
         return definition.strip() + ';', declaration.strip()
 
     def get_cdeserializer(self, address_space_qualifier):
@@ -435,26 +505,26 @@ typedef struct __attribute__((__packed__)) _%(name)s
             'address_space_qualifier': address_space_qualifier
         }
         declaration = \
-'''
-%(definition)s
-{
-    self->%(capacity_field)s = (%(address_space_qualifier)s int*)(blob);
-    self->%(count_field)s = (%(address_space_qualifier)s int*)(blob + %(static_fields_space)s / 2);
-    self->%(first_item_field)s = blob + %(static_fields_space)s;
-};''' % {
-    'definition' : definition,
-    'static_fields_space': BlobArray.STATIC_FIELDS_BYTES,
-    'capacity_field': BlobArray.CAPACITY_FIELD,
-    'count_field': BlobArray.COUNT_FIELD_NAME,
-    'first_item_field': self.FIRST_ITEM_FIELD,
-    'address_space_qualifier': address_space_qualifier,
-}
+            '''
+            %(definition)s
+            {
+                self->%(capacity_field)s = (%(address_space_qualifier)s int*)(blob);
+                self->%(count_field)s = (%(address_space_qualifier)s int*)(blob + %(static_fields_space)s / 2);
+                self->%(first_item_field)s = blob + %(static_fields_space)s;
+            };''' % {
+                'definition': definition,
+                'static_fields_space': BlobArray.STATIC_FIELDS_BYTES,
+                'capacity_field': BlobArray.CAPACITY_FIELD,
+                'count_field': BlobArray.COUNT_FIELD_NAME,
+                'first_item_field': self.FIRST_ITEM_FIELD,
+                'address_space_qualifier': address_space_qualifier,
+            }
         return definition + ';', declaration
 
     def get_item_cname(self, address_space_qualifier):
         """Returns the function name of the c99 item function."""
 
-        return 'item_%s' % BlobLib.get_interface(self.blob_type.child_type).get_cname(address_space_qualifier)
+        return 'get_%s_item' % self.get_cname(address_space_qualifier)
 
     def get_citem(self, address_space_qualifier):
         """Returns the c99 deserializer function."""
@@ -477,25 +547,24 @@ typedef struct __attribute__((__packed__)) _%(name)s
         child_sizeof_name = BlobLib.get_interface(self.blob_type.child_type).get_sizeof_cname(address_space_qualifier)
 
         declaration = \
-'''
-%(definition)s
-{
-    if(index < 0)
-        return 0;
-    if(index >= *array.capacity)
-        return 0;
+            '''
+            %(definition)s
+            {
+                if(index < 0)
+                    return 0;
+                if(index >= *array.capacity)
+                    return 0;
 
-    unsigned long offset = index * %(sizeof_function)s(array.%(first_item_field)s);
-    %(address_space_qualifier)s char* item_blob = array.%(first_item_field)s + offset;
-    return (%(child_name)s *)item_blob;
-};''' % {
-    'definition' : definition,
-    # 'static_fields_space': BlobArray.STATIC_FIELDS_BYTES,
-    'sizeof_function': child_sizeof_name,
-    'first_item_field': self.FIRST_ITEM_FIELD,
-    'address_space_qualifier': address_space_qualifier,
-    'child_name': child_name
-}
+                unsigned long offset = index * %(sizeof_function)s(array.%(first_item_field)s);
+                %(address_space_qualifier)s char* item_blob = array.%(first_item_field)s + offset;
+                return (%(child_name)s *)item_blob;
+            };''' % {
+                'definition': definition,
+                'sizeof_function': child_sizeof_name,
+                'first_item_field': self.FIRST_ITEM_FIELD,
+                'address_space_qualifier': address_space_qualifier,
+                'child_name': child_name
+            }
         return definition + ';', declaration
 
     def _get_citem_complex(self, address_space_qualifier):
@@ -509,27 +578,27 @@ typedef struct __attribute__((__packed__)) _%(name)s
         }
 
         child_sizeof_name = BlobLib.get_interface(self.blob_type.child_type).get_sizeof_cname(address_space_qualifier)
-        child_deserialize_name = BlobLib.get_interface(self.blob_type.child_type).get_deserialize_cname(address_space_qualifier)
+        child_deserialize_name = BlobLib.get_interface(self.blob_type.child_type).get_deserialize_cname(
+            address_space_qualifier)
 
         declaration = \
-'''
-%(definition)s
-{
-    unsigned long offset = index * %(sizeof_function)s(array.%(first_item_field)s);
-    %(address_space_qualifier)s char* item_blob = array.%(first_item_field)s + offset;
-    %(child_deserialize_name)s(item_blob, item);
-};''' % {
-    'definition' : definition,
-    'sizeof_function': child_sizeof_name,
-    'first_item_field': self.FIRST_ITEM_FIELD,
-    'address_space_qualifier': address_space_qualifier,
-    'child_name': child_name,
-    'child_deserialize_name': child_deserialize_name
-}
+            '''
+            %(definition)s
+            {
+                unsigned long offset = index * %(sizeof_function)s(array.%(first_item_field)s);
+                %(address_space_qualifier)s char* item_blob = array.%(first_item_field)s + offset;
+                %(child_deserialize_name)s(item_blob, item);
+            };''' % {
+                'definition': definition,
+                'sizeof_function': child_sizeof_name,
+                'first_item_field': self.FIRST_ITEM_FIELD,
+                'address_space_qualifier': address_space_qualifier,
+                'child_deserialize_name': child_deserialize_name
+            }
         return definition + ';', declaration
 
 
-class BlobLib(object):
+class BlobLib(Lib):
     """Generates C-code which allows to work with the serialized blob data."""
 
     @classmethod
@@ -548,12 +617,22 @@ class BlobLib(object):
         else:
             return BlobComplexInterface(blob_type)
 
-    def __init__(self,
-                 device=None,
-                 required_constant_blob_types=None,
-                 required_global_blob_types=None,
-                 header_header='',
-                 header_footer=''):
+    @property
+    def header_code(self):
+        return self._header_code
+
+    @property
+    def source_code(self):
+        return self._source_code
+
+    def __init__(
+            self,
+            device=None,
+            required_constant_blob_types=None,
+            required_global_blob_types=None,
+            header_header='',
+            header_footer=''
+    ):
 
         if device is None:
             device = opencl.create_some_context(False).get_info(opencl.context_info.DEVICES)[0]
@@ -592,7 +671,8 @@ class BlobLib(object):
 
                 # add type definition
                 if implode_float_n:
-                    type_definition = implode_floatn(blob_type_interface.get_ctype(address_space_qualifier=address_space_qualifier))
+                    type_definition = implode_floatn(
+                        blob_type_interface.get_ctype(address_space_qualifier=address_space_qualifier))
 
                 else:
                     type_definition = (blob_type_interface.get_ctype(address_space_qualifier=address_space_qualifier))
@@ -600,18 +680,21 @@ class BlobLib(object):
                 self.type_definitions.append(type_definition)
 
                 # add function definitions and declarations
-                function_definitions, function_declarations = blob_type_interface.get_cfunctions(address_space_qualifier=address_space_qualifier)
+                function_definitions, function_declarations = blob_type_interface.get_cfunctions(
+                    address_space_qualifier=address_space_qualifier
+                )
                 self.function_definitions.extend(function_definitions)
                 self.function_declarations.extend(function_declarations)
 
-        self.header_code = '\n\n'.join([
+        self._header_code = '\n\n'.join([
             '/* header generated by %s */' % __file__,
             header_header,
             '\n\n'.join(map(str.strip, self.type_definitions)),
             '\n\n'.join(map(str.strip, self.function_definitions)),
             header_footer
         ])
-        self.source_code = '\n\n'.join([
+
+        self._source_code = '\n\n'.join([
             '/* source generated by %s */' % __file__,
             '\n\n'.join(map(str.strip, self.function_declarations))
         ])

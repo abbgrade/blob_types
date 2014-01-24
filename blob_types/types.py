@@ -659,8 +659,8 @@ class Blob(object):
         
         Try to get it from the blob first, then try to get it from the python object.
         """
-        if not name in ['_blob_fields_', '_blob_field_offsets', 'dtype'] \
-            and name in self._blob_fields_:
+        if not name in ['_blob_fields_', '_blob_field_offsets', 'dtype'] and \
+                hasattr(self, '_blob_fields_') and name in self._blob_fields_:
             value = self._blob[name]
             cast = self._data_property_type(name)
 
@@ -673,11 +673,8 @@ class Blob(object):
             except:
                 raise
 
-        try:
+        else:
             return object.__getattribute__(self, name)
-
-        except:
-            raise
 
     def to_struct(self):
         """Generates a struct from the blob data.
