@@ -1042,7 +1042,7 @@ class BlobArray(Blob):
         return [item.to_struct() for item in self._items]
 
 
-class BlobLinkedList(BlobArray):
+class BlobLinkedListHost(BlobArray):
 
     def next_blob(self):
         self.count += 1
@@ -1059,6 +1059,66 @@ class BlobLinkedList(BlobArray):
         assert item.global_index > -1
         assert item.global_index == self.count - 1
         self._items[item.global_index] = item
+
+
+class BlobLinkedList(Blob):
+
+    INDEX_FIELD = 'global_index'
+    NEXT_INDEX_FIELD = 'next_index'
+
+    dtype, subtypes = Blob.create_plain_dtype(
+        ('first_index', numpy.int32),
+        ('last_index', numpy.int32),
+    )
+
+    @property
+    def first(self):
+        return self.host[self.first_index]
+
+    @property
+    def last(self):
+        return self.host[self.last_index]
+
+    def __init__(self, blob, dtype=None, dtype_params=None):
+        Blob.__init__(self, blob, dtype=dtype, dtype_params=dtype_params)
+        self._items = []
+        # self.first = None
+        # self.last = None
+
+    def __getitem__(self, i):
+        return self._items[i]
+
+    def __len__(self):
+        current = self.first
+        count = 0
+
+        while current is not None:
+            count += 1
+            if current.next_index > -1:
+                current = self.host[current.next_index]
+
+            else:
+                break
+
+            if count > BlobArray.MAX_DTYPE_PARAM:
+                raise BlobValidationException()
+
+        return count
+
+    def append(self, item):
+        if len(self._items) == 0:
+            # self.first = item
+            self.first_index = item.global_index
+            # self.last = item
+            self.last_index = item.global_index
+            self._items.append(item)
+
+        else:
+            # self.last.next = item
+            self.last.next_index = item.global_index
+            # self.last = item
+            self.last_index = item.global_index
+            self._items.append(item)
 
 
 class BlobEnum(Blob):
