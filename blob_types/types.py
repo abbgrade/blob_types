@@ -689,6 +689,29 @@ class Blob(object):
         return struct
 
 
+class BlobArrayIterator(object):
+    """Iteratres over all elements and skips uninitialized."""
+
+    def __init__(self, array):
+        self.array = array
+        self.index = -1
+
+    def next(self):
+        self.index += 1
+
+        while True:
+            if self.index < self.array.capacity:
+                item = self.array[self.index]
+                if item is not None:
+                    return item
+
+                else:
+                    self.index += 1
+
+            else:
+                raise StopIteration
+
+
 class BlobArray(Blob):
     """Encapsulates an array of Blob.
     
@@ -976,10 +999,13 @@ class BlobArray(Blob):
 
         valid_item_count = len(filter(lambda item: item is not None, items))
         if self.count == 0 and valid_item_count != 0:
-            for index in range(self.capacity - 1, 0 - 1, -1):
-                if items[index] is not None:
-                    self.count = index + 1
-                    break
+            self.count = valid_item_count
+            # set next index
+            #
+            # for index in range(self.capacity - 1, 0 - 1, -1):
+            #     if items[index] is not None:
+            #         self.count = index + 1
+            #         break
 
         else:
             child_dtype, capacity_ = self.create_child_dtype(dtype_params)
@@ -1005,7 +1031,7 @@ class BlobArray(Blob):
 
     def __iter__(self):
         """Returns an iterator over the stored elements."""
-        return self._items.__iter__()
+        return BlobArrayIterator(self)
 
     def __len__(self):
         """Returns the number of stored elements."""
