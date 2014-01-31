@@ -1082,8 +1082,6 @@ class BlobLinkedList(Blob):
     def __init__(self, blob, dtype=None, dtype_params=None):
         Blob.__init__(self, blob, dtype=dtype, dtype_params=dtype_params)
         self._items = []
-        # self.first = None
-        # self.last = None
 
     def __getitem__(self, i):
         return self._items[i]
@@ -1107,16 +1105,12 @@ class BlobLinkedList(Blob):
 
     def append(self, item):
         if len(self._items) == 0:
-            # self.first = item
             self.first_index = item.global_index
-            # self.last = item
             self.last_index = item.global_index
             self._items.append(item)
 
         else:
-            # self.last.next = item
             self.last.next_index = item.global_index
-            # self.last = item
             self.last_index = item.global_index
             self._items.append(item)
 
@@ -1128,28 +1122,29 @@ class BlobEnum(Blob):
     UNDEFINED = 'undefined'
 
     @classmethod
-    def string_to_int(cls, string):
-        for index, field in enumerate(cls.fields):
-            if string == field:
-                return index
+    def create_fields(cls, *args, **to_int_map):
+        assert (len(args) == 0) != (len(to_int_map) == 0), 'do not mix args and kwargs'
+        if args:
+            for index, option in enumerate(args):
+                to_int_map[option] = index
 
-        raise NotImplementedError(string)
+        to_string_map = {}
+        for option, value in to_int_map.items():
+            assert isinstance(option, basestring), 'option %s must be string instead of %s' % (option, type(option))
+            assert isinstance(value, int), 'value %s must be integer instead of %s' % (value, type(value))
+            to_string_map[value] = option
+
+        return to_int_map, to_string_map
+
+
+    @classmethod
+    def string_to_int(cls, string):
+        return cls.to_int_map[string]
 
     @classmethod
     def int_to_string(cls, index, ignore_errors=False):
-        if index <= 0:
-            if ignore_errors:
-                return cls.UNDEFINED
-
-            else:
-                raise EnumException()
-
-        elif index >= len(cls.fields):
-            if ignore_errors:
-                return '%d is out of range' % index
-
-            else:
-                raise EnumException()
+        if ignore_errors and index not in cls.to_string_map:
+            return
 
         else:
-            return cls.fields[index]
+            return cls.to_string_map[index]

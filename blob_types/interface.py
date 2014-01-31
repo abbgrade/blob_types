@@ -392,7 +392,7 @@ class BlobEnumInterface(BlobPlainInterface):
 
         field_definitions = []
         field_constants = []
-        for index, field in enumerate(self.blob_type.fields):
+        for index, field in self.blob_type.to_string_map.items():
             if len(field) == 0:
                 field = BlobEnum.UNDEFINED
             constant = self.get_name(address_space_qualifier, clean=True).upper() + '_' + camel_case_to_underscore(
