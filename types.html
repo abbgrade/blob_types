@@ -1872,45 +1872,12 @@ It generates a (dummy) c99 struct declaration as well as a deserializer function
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blob</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">dtype_params</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
         <span class="n">Blob</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blob</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">dtype_params</span><span class="o">=</span><span class="n">dtype_params</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_items</span> <span class="o">=</span> <span class="p">[]</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-84'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-84'>#</a>
-      </div>
-      <p>self.first = None
-self.last = None</p>
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-85'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-85'>#</a>
-      </div>
-      
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">[</span><span class="n">i</span><span class="p">]</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-86'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-86'>#</a>
-      </div>
-      
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_items</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">first</span>
         <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
 
@@ -1925,125 +1892,53 @@ self.last = None</p>
             <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="n">BlobArray</span><span class="o">.</span><span class="n">MAX_DTYPE_PARAM</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">BlobValidationException</span><span class="p">()</span>
 
-        <span class="k">return</span> <span class="n">count</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-87'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-87'>#</a>
-      </div>
-      
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-88'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-88'>#</a>
-      </div>
-      <p>self.first = item</p>
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>            <span class="bp">self</span><span class="o">.</span><span class="n">first_index</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">global_index</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-89'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-89'>#</a>
-      </div>
-      <p>self.last = item</p>
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>            <span class="bp">self</span><span class="o">.</span><span class="n">last_index</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">global_index</span>
+        <span class="k">return</span> <span class="n">count</span>
+
+    <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">first_index</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">global_index</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_index</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">global_index</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
 
-        <span class="k">else</span><span class="p">:</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-90'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-90'>#</a>
-      </div>
-      <p>self.last.next = item</p>
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>            <span class="bp">self</span><span class="o">.</span><span class="n">last</span><span class="o">.</span><span class="n">next_index</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">global_index</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-91'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-91'>#</a>
-      </div>
-      <p>self.last = item</p>
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>            <span class="bp">self</span><span class="o">.</span><span class="n">last_index</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">global_index</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-92'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-92'>#</a>
-      </div>
-      
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre><span class="k">class</span> <span class="nc">BlobEnum</span><span class="p">(</span><span class="n">Blob</span><span class="p">):</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last</span><span class="o">.</span><span class="n">next_index</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">global_index</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_index</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">global_index</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">BlobEnum</span><span class="p">(</span><span class="n">Blob</span><span class="p">):</span>
 
     <span class="n">dtype</span><span class="p">,</span> <span class="n">subtypes</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="p">[]</span>
 
-    <span class="n">UNDEFINED</span> <span class="o">=</span> <span class="s">&#39;undefined&#39;</span></pre></div>
-    </div>
-  </div>
-  <div class='clearall'></div>
-  <div class='section' id='section-93'>
-    <div class='docs'>
-      <div class='octowrap'>
-        <a class='octothorpe' href='#section-93'>#</a>
-      </div>
-      
-    </div>
-    <div class='code'>
-      <div class="highlight"><pre>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">string_to_int</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">field</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cls</span><span class="o">.</span><span class="n">fields</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">string</span> <span class="o">==</span> <span class="n">field</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">index</span>
+    <span class="n">UNDEFINED</span> <span class="o">=</span> <span class="s">&#39;undefined&#39;</span>
 
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">create_fields</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">to_int_map</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">to_int_map</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">),</span> <span class="s">&#39;do not mix args and kwargs&#39;</span>
+        <span class="k">if</span> <span class="n">args</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">option</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+                <span class="n">to_int_map</span><span class="p">[</span><span class="n">option</span><span class="p">]</span> <span class="o">=</span> <span class="n">index</span>
+
+        <span class="n">to_string_map</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">option</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">to_int_map</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">option</span><span class="p">,</span> <span class="nb">basestring</span><span class="p">),</span> <span class="s">&#39;option </span><span class="si">%s</span><span class="s"> must be string instead of </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">option</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">option</span><span class="p">))</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="s">&#39;value </span><span class="si">%s</span><span class="s"> must be integer instead of </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+            <span class="n">to_string_map</span><span class="p">[</span><span class="n">value</span><span class="p">]</span> <span class="o">=</span> <span class="n">option</span>
+
+        <span class="k">return</span> <span class="n">to_int_map</span><span class="p">,</span> <span class="n">to_string_map</span>
+
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">string_to_int</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">to_int_map</span><span class="p">[</span><span class="n">string</span><span class="p">]</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">int_to_string</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">index</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">ignore_errors</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">UNDEFINED</span>
-
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">EnumException</span><span class="p">()</span>
-
-        <span class="k">elif</span> <span class="n">index</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cls</span><span class="o">.</span><span class="n">fields</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">ignore_errors</span><span class="p">:</span>
-                <span class="k">return</span> <span class="s">&#39;</span><span class="si">%d</span><span class="s"> is out of range&#39;</span> <span class="o">%</span> <span class="n">index</span>
-
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">EnumException</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">ignore_errors</span> <span class="ow">and</span> <span class="n">index</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cls</span><span class="o">.</span><span class="n">to_string_map</span><span class="p">:</span>
+            <span class="k">return</span>
 
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">to_string_map</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
 
 </pre></div>
     </div>
