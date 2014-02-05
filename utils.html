@@ -265,7 +265,7 @@ will be:
       
     </div>
     <div class='code'>
-      <div class="highlight"><pre><span class="k">def</span> <span class="nf">diff_buffer</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+      <div class="highlight"><pre><span class="k">def</span> <span class="nf">diff_buffer</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;len(a):</span><span class="si">%d</span><span class="s"> == </span><span class="si">%d</span><span class="s">:len(b)&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">))]</span>
 
     <span class="k">assert</span> <span class="n">a</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
@@ -280,8 +280,29 @@ will be:
             <span class="k">break</span>
 
         <span class="n">a_field</span><span class="p">,</span> <span class="n">b_field</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="n">b</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">a_field</span> <span class="o">!=</span> <span class="n">b_field</span><span class="p">:</span>
-            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%d</span><span class="s">: </span><span class="si">%d</span><span class="s"> != </span><span class="si">%d</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="nb">ord</span><span class="p">(</span><span class="n">a_field</span><span class="p">),</span> <span class="nb">ord</span><span class="p">(</span><span class="n">b_field</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="n">a_field</span> <span class="o">!=</span> <span class="n">b_field</span><span class="p">:</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-13'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-13'>#</a>
+      </div>
+      <p>determine field were the difference is</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>            <span class="n">diff_field</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="k">if</span> <span class="n">dtype</span><span class="p">:</span>
+                <span class="n">previous_field</span> <span class="o">=</span> <span class="bp">None</span>
+                <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">dtype</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+                    <span class="n">field_dtype</span><span class="p">,</span> <span class="n">field_offset</span> <span class="o">=</span> <span class="n">dtype</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="n">field</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="n">field_offset</span><span class="p">:</span>
+                        <span class="n">diff_field</span> <span class="o">=</span> <span class="n">previous_field</span>
+                        <span class="k">break</span>
+                    <span class="n">previous_field</span> <span class="o">=</span> <span class="n">field</span>
+
+            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%d</span><span class="s"> </span><span class="si">%s</span><span class="s">: </span><span class="si">%d</span><span class="s"> != </span><span class="si">%d</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">diff_field</span><span class="p">,</span> <span class="nb">ord</span><span class="p">(</span><span class="n">a_field</span><span class="p">),</span> <span class="nb">ord</span><span class="p">(</span><span class="n">b_field</span><span class="p">)))</span>
 
             <span class="k">if</span> <span class="n">diff_start</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
                 <span class="n">diff_start</span> <span class="o">=</span> <span class="n">index</span>
@@ -290,10 +311,10 @@ will be:
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-13'>
+  <div class='section' id='section-14'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-13'>#</a>
+        <a class='octothorpe' href='#section-14'>#</a>
       </div>
       
     </div>
