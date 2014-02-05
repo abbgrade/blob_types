@@ -1,8 +1,8 @@
 blob_types
 ==========
 
-A Python lib, which parses a JSON structure into full featured Python objects.
-It enables to pass them to a OpenCL devices and to generate required C structures, initialization, serialization and deserialization functions.
+A Python lib, which parses a JSON structure into fully featured Python objects.
+It enables to pass them to OpenCL devices and to generate required C structures, initialization, serialization and deserialization functions.
 
 Contribute
 ----------
@@ -12,6 +12,8 @@ Contribute
 Install
 -------
 
+	git clone https://github.com/abbgrade/blob_types
+	cd blob_types
 	python setup.py install
 
 Documentation
