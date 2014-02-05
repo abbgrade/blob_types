@@ -426,15 +426,18 @@ class Blob(object):
         return numpy.dtype(dtype_components), subtypes
 
     @classmethod
-    def from_struct(cls, struct, blob):
+    def from_struct(cls, struct, blob, **kwargs):
         """Creates and initializes a object from a struct."""
 
         assert blob.shape == (), 'the blob must be plain'
 
-        self = cls(blob=blob)
+        if hasattr(cls, '_preprocess_struct'):
+            struct = cls._preprocess_struct(struct, **kwargs)
 
-        assert hasattr(self, '_init_blob_from_struct'), '%s requires an implementation of _init_blob_from_struct' % cls
-        self._init_blob_from_struct(struct=flat_struct(struct), blob=blob)
+        self = cls(blob=blob, **kwargs)
+
+        assert hasattr(self, '_init_from_struct'), '%s requires an implementation of _init_from_struct' % cls
+        self._init_from_struct(struct=flat_struct(struct), blob=blob)
 
         return self
 
@@ -556,7 +559,7 @@ class Blob(object):
         # determine blob properties
         blob_properties = zip(*dtype.descr)
         assert len(blob_properties) == 2
-        assert len(blob_properties[0]) > 1, 'a Blob must encapsulate more than one variable: %s' % blob_properties
+        assert len(blob_properties[0]) > 0, 'a Blob must encapsulate more than one variable: %s' % blob_properties
 
         # init object
         self._blob_fields_, self._blob_field_offsets = blob_properties
@@ -586,7 +589,7 @@ class Blob(object):
 
         assert self.dtype == blob.dtype, diff_dtype(self.dtype, blob.dtype)
 
-    def _init_blob_from_struct(self, struct, blob):
+    def _init_from_struct(self, struct, blob):
         """Copy all elements of a struct into the blob."""
         assert blob.dtype == self.dtype
         cls = type(self)
@@ -653,7 +656,7 @@ class Blob(object):
     def __diff__(self, other):
         for field in self._blob_fields_:
             if repr(getattr(self, field)) != repr(getattr(other, field)):
-                return 'self.%s: %s != %s: other.%s' % (field, getattr(self, field), field, getattr(other, field))
+                return 'self.%s -> %s != %s <- other.%s' % (field, getattr(self, field), getattr(other, field), field)
         return True
 
     def __getattribute__(self, name):
@@ -677,6 +680,20 @@ class Blob(object):
 
         else:
             return object.__getattribute__(self, name)
+
+    def __json__(self):
+        values = '{\n'
+        for field, subtype in self.subtypes:
+            if type(subtype) == type and issubclass(subtype, Blob):
+                if issubclass(subtype, BlobEnum):
+                    values += '%s: "%s",\n' % (field, subtype.int_to_string(getattr(self, field), ignore_errors=True))
+                else:
+                    values += '%s: %s,\n' % (field, getattr(self, field).__json__())
+            else:
+                values += '%s: %s,\n' % (field, getattr(self, field))
+        values += '}'
+
+        return values
 
     def to_struct(self):
         """Generates a struct from the blob data.
@@ -906,10 +923,14 @@ class BlobArray(Blob):
 
         assert blob.shape == (), 'the blob must be plain'
 
+        if hasattr(cls, '_preprocess_struct'):
+            struct = cls._preprocess_struct(struct)
+
         items = []
         for index, child_struct in enumerate(struct):
             child_blob = cls.get_item_blob(blob, index, child_dtype=None)
-            items.append(cls.child_type.from_struct(struct=child_struct, blob=child_blob))
+            child = cls.child_type.from_struct(struct=child_struct, blob=child_blob)
+            items.append(child)
 
         self = cls(blob, items=items)
 
@@ -1065,10 +1086,14 @@ class BlobLinkedList(Blob):
 
     INDEX_FIELD = 'global_index'
     NEXT_INDEX_FIELD = 'next_index'
+    FIRST_INDEX_FIELD = 'first_index'
+    LAST_INDEX_FIELD = 'last_index'
+    COUNT_FIELD = 'count'
 
     dtype, subtypes = Blob.create_plain_dtype(
-        ('first_index', numpy.int32),
-        ('last_index', numpy.int32),
+        (FIRST_INDEX_FIELD, numpy.int32),
+        (LAST_INDEX_FIELD, numpy.int32),
+        (COUNT_FIELD, numpy.int32),
     )
 
     @property
@@ -1104,6 +1129,7 @@ class BlobLinkedList(Blob):
         return count
 
     def append(self, item):
+        self.count += 1
         if len(self._items) == 0:
             self.first_index = item.global_index
             self.last_index = item.global_index

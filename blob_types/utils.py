@@ -136,7 +136,7 @@ def get_blob_index(dtype, name):
 def dtype_to_lines(dtype):
     return str(dtype).replace('), (', ')\n(').split('\n')
 
-def diff_buffer(a, b):
+def diff_buffer(a, b, dtype=None):
     result = ['len(a):%d == %d:len(b)' % (len(a), len(b))]
 
     assert a is not None
@@ -152,7 +152,19 @@ def diff_buffer(a, b):
 
         a_field, b_field = a[index], b[index]
         if a_field != b_field:
-            result.append('%d: %d != %d' % (index, ord(a_field), ord(b_field)))
+
+            # determine field were the difference is
+            diff_field = None
+            if dtype:
+                previous_field = None
+                for field in dtype.names:
+                    field_dtype, field_offset = dtype.fields[field]
+                    if index < field_offset:
+                        diff_field = previous_field
+                        break
+                    previous_field = field
+
+            result.append('%d %s: %d != %d' % (index, diff_field, ord(a_field), ord(b_field)))
 
             if diff_start is None:
                 diff_start = index
