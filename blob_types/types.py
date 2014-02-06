@@ -291,8 +291,8 @@ class Blob(object):
 
         if hasattr(cls, 'subtypes'):
             for subtype_field, subtype in cls.subtypes:
-
                 subtype_params = cls.explode_dtype_params(field=subtype_field, dtype_params=dtype_params)
+
                 if filter(lambda item: item is None, subtype_params.values()):
                     subtype_params = subtype.get_dtype_params_from_blob(blob, offset=offset)
 
@@ -308,6 +308,7 @@ class Blob(object):
 
                 blobs[subtype_field] = subtype_blob
 
+                assert subtype_byte_count > 0, 'sizeof %s is expected > 0' % subtype_field
                 offset += subtype_byte_count
         else:
             raise NotImplementedError()
@@ -506,7 +507,7 @@ class Blob(object):
         assert blob.dtype == dtype, diff_dtype(blob.dtype, dtype)
 
         try:
-            return cls(blob=blob, dtype_params=dtype_params)
+            return cls(blob=blob, dtype=dtype, dtype_params=dtype_params)
 
         except Exception as ex:
             logging.warn('%s.%s', cls, ex)
@@ -536,24 +537,7 @@ class Blob(object):
         if dtype is None:
             dtype = blob.dtype
 
-        dtype_is_static = False
-        if hasattr(self, 'dtype') and isinstance(self.dtype, numpy.dtype):
-            dtype_is_static = True
-
-        assert dtype_params or dtype or dtype_is_static, '%s: a dtype or the factory parameter must be set.' % type(self)
-
-        # determine dtype by creation parameters if dtype is unset
-        if dtype is None:
-            if dtype_is_static:
-                dtype = type(self).dtype
-
-            else:
-                try:
-                    dtype = type(self).create_dtype(dtype_params=dtype_params)
-
-                except Exception:
-                    raise
-
+        assert dtype_params or dtype, '%s: a dtype or the factory parameter must be set.' % type(self)
         assert dtype is not None
 
         # determine blob properties
@@ -575,9 +559,11 @@ class Blob(object):
                     setattr(self, subtype_field, value)
                     continue
 
+                subtype_cls = None
                 for name_, type_ in self.subtypes:
                     if subtype_field == name_:
                         subtype_cls = type_
+                        break
 
                 if issubclass(subtype_cls, Blob) and not issubclass(subtype_cls, BlobEnum):
                     value = subtype_cls.from_blob(subtype_blob)
@@ -1162,6 +1148,10 @@ class BlobEnum(Blob):
 
         return to_int_map, to_string_map
 
+    @classmethod
+    @validate_dtype_params
+    def sizeof_dtype(cls, dtype_params):
+        return cls.dtype().itemsize
 
     @classmethod
     def string_to_int(cls, string):

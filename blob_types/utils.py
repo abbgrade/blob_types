@@ -233,3 +233,6 @@ def diff_dtype(a, b):
                     diff_start = index
 
     return '\n'.join(result)
+
+def diff_blob(a, b):
+    return a.__diff__(b)

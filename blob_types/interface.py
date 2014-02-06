@@ -296,7 +296,10 @@ typedef struct _%(name)s
 class BlobPlainInterface(BlobInterface):
 
     def get_functions(self, address_space_qualifier):
-        functions = [self.get_sizeof(address_space_qualifier)]
+        functions = [
+            self.get_sizeof(address_space_qualifier),
+            self.get_copy(address_space_qualifier)
+        ]
 
         for field, dtype in self.blob_type.get_blob_fields(recursive=True):
             if not issubclass(dtype, BlobEnum):
@@ -347,6 +350,34 @@ typedef struct __attribute__((__packed__)) _%(cname)s
     'name': self.get_name(address_space_qualifier),
 }
         return definition.strip() + ';', declaration.strip()
+
+    def get_copy_name(self, address_space_qualifier):
+        """Returns the c99 function name of the accessor function."""
+
+        return 'copy_%s' % (self.get_name(address_space_qualifier))
+
+    def get_copy(self, address_space_qualifier):
+
+        definition = 'void %(function_name)s(%(address_space_qualifier)s %(cname)s* source, %(address_space_qualifier)s %(cname)s* destination)' % {
+            'function_name': self.get_copy_name(address_space_qualifier),
+            'cname': self.get_name(address_space_qualifier),
+            'address_space_qualifier': address_space_qualifier
+        }
+
+        lines = []
+        for field in self.blob_type.dtype.names:
+            lines.append('\tdestination->%(field)s = source->%(field)s;' % {'field': field})
+
+        declaration = \
+'''
+%(definition)s
+{
+%(lines)s
+};''' % {
+    'definition': definition,
+    'lines': '\n'.join(lines)
+}
+        return definition + ';', declaration
 
     def get_accessor_name(self, field, address_space_qualifier):
         """Returns the c99 function name of the accessor function."""
