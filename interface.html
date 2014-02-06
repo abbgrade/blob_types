@@ -700,7 +700,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
     <div class='code'>
       <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_functions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span>
-        <span class="n">functions</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">get_sizeof</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)]</span>
+        <span class="n">functions</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">get_sizeof</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">get_copy</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">)</span>
+        <span class="p">]</span>
 
         <span class="k">for</span> <span class="n">field</span><span class="p">,</span> <span class="n">dtype</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">get_blob_fields</span><span class="p">(</span><span class="n">recursive</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">BlobEnum</span><span class="p">):</span>
@@ -800,7 +803,7 @@ It contains classes which generate c structs and functions for access to blob_ty
       <p>Returns the c99 function name of the accessor function.</p>
     </div>
     <div class='code'>
-      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_accessor_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span></pre></div>
+      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_copy_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -812,7 +815,7 @@ It contains classes which generate c structs and functions for access to blob_ty
       
     </div>
     <div class='code'>
-      <div class="highlight"><pre>        <span class="k">return</span> <span class="s">&#39;get_</span><span class="si">%s</span><span class="s">_</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_name</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span> <span class="n">field</span><span class="p">)</span></pre></div>
+      <div class="highlight"><pre>        <span class="k">return</span> <span class="s">&#39;copy_</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_name</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">))</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -820,6 +823,63 @@ It contains classes which generate c structs and functions for access to blob_ty
     <div class='docs'>
       <div class='octowrap'>
         <a class='octothorpe' href='#section-48'>#</a>
+      </div>
+      
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_copy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span>
+
+        <span class="n">definition</span> <span class="o">=</span> <span class="s">&#39;void </span><span class="si">%(function_name)s</span><span class="s">(</span><span class="si">%(address_space_qualifier)s</span><span class="s"> </span><span class="si">%(cname)s</span><span class="s">* source, </span><span class="si">%(address_space_qualifier)s</span><span class="s"> </span><span class="si">%(cname)s</span><span class="s">* destination)&#39;</span> <span class="o">%</span> <span class="p">{</span>
+            <span class="s">&#39;function_name&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_copy_name</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
+            <span class="s">&#39;cname&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_name</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span>
+            <span class="s">&#39;address_space_qualifier&#39;</span><span class="p">:</span> <span class="n">address_space_qualifier</span>
+        <span class="p">}</span>
+
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blob_type</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">destination-&gt;</span><span class="si">%(field)s</span><span class="s"> = source-&gt;</span><span class="si">%(field)s</span><span class="s">;&#39;</span> <span class="o">%</span> <span class="p">{</span><span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="n">field</span><span class="p">})</span>
+
+        <span class="n">declaration</span> <span class="o">=</span> \
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">%(definition)s</span>
+<span class="sd">{</span>
+<span class="sd">%(lines)s</span>
+<span class="sd">};&#39;&#39;&#39;</span> <span class="o">%</span> <span class="p">{</span>
+    <span class="s">&#39;definition&#39;</span><span class="p">:</span> <span class="n">definition</span><span class="p">,</span>
+    <span class="s">&#39;lines&#39;</span><span class="p">:</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="p">}</span>
+        <span class="k">return</span> <span class="n">definition</span> <span class="o">+</span> <span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="n">declaration</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-49'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-49'>#</a>
+      </div>
+      <p>Returns the c99 function name of the accessor function.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">get_accessor_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">address_space_qualifier</span><span class="p">):</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-50'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-50'>#</a>
+      </div>
+      
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="k">return</span> <span class="s">&#39;get_</span><span class="si">%s</span><span class="s">_</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_name</span><span class="p">(</span><span class="n">address_space_qualifier</span><span class="p">),</span> <span class="n">field</span><span class="p">)</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-51'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-51'>#</a>
       </div>
       
     </div>
@@ -855,10 +915,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-49'>
+  <div class='section' id='section-52'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-49'>#</a>
+        <a class='octothorpe' href='#section-52'>#</a>
       </div>
       
     </div>
@@ -867,10 +927,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-50'>
+  <div class='section' id='section-53'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-50'>#</a>
+        <a class='octothorpe' href='#section-53'>#</a>
       </div>
       
     </div>
@@ -880,10 +940,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-51'>
+  <div class='section' id='section-54'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-51'>#</a>
+        <a class='octothorpe' href='#section-54'>#</a>
       </div>
       
     </div>
@@ -918,10 +978,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-52'>
+  <div class='section' id='section-55'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-52'>#</a>
+        <a class='octothorpe' href='#section-55'>#</a>
       </div>
       
     </div>
@@ -932,10 +992,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-53'>
+  <div class='section' id='section-56'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-53'>#</a>
+        <a class='octothorpe' href='#section-56'>#</a>
       </div>
       
     </div>
@@ -950,10 +1010,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-54'>
+  <div class='section' id='section-57'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-54'>#</a>
+        <a class='octothorpe' href='#section-57'>#</a>
       </div>
       <p>Returns the c99 struct declaration.</p>
     </div>
@@ -962,10 +1022,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-55'>
+  <div class='section' id='section-58'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-55'>#</a>
+        <a class='octothorpe' href='#section-58'>#</a>
       </div>
       
     </div>
@@ -994,10 +1054,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-56'>
+  <div class='section' id='section-59'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-56'>#</a>
+        <a class='octothorpe' href='#section-59'>#</a>
       </div>
       
     </div>
@@ -1032,10 +1092,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-57'>
+  <div class='section' id='section-60'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-57'>#</a>
+        <a class='octothorpe' href='#section-60'>#</a>
       </div>
       <p>Returns the c99 deserializer function.</p>
     </div>
@@ -1044,10 +1104,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-58'>
+  <div class='section' id='section-61'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-58'>#</a>
+        <a class='octothorpe' href='#section-61'>#</a>
       </div>
       
     </div>
@@ -1076,10 +1136,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-59'>
+  <div class='section' id='section-62'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-59'>#</a>
+        <a class='octothorpe' href='#section-62'>#</a>
       </div>
       <p>Returns the function name of the c99 item function.</p>
     </div>
@@ -1088,10 +1148,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-60'>
+  <div class='section' id='section-63'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-60'>#</a>
+        <a class='octothorpe' href='#section-63'>#</a>
       </div>
       
     </div>
@@ -1100,10 +1160,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-61'>
+  <div class='section' id='section-64'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-61'>#</a>
+        <a class='octothorpe' href='#section-64'>#</a>
       </div>
       <p>Returns the c99 deserializer function.</p>
     </div>
@@ -1112,10 +1172,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-62'>
+  <div class='section' id='section-65'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-62'>#</a>
+        <a class='octothorpe' href='#section-65'>#</a>
       </div>
       
     </div>
@@ -1128,10 +1188,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-63'>
+  <div class='section' id='section-66'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-63'>#</a>
+        <a class='octothorpe' href='#section-66'>#</a>
       </div>
       
     </div>
@@ -1171,10 +1231,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-64'>
+  <div class='section' id='section-67'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-64'>#</a>
+        <a class='octothorpe' href='#section-67'>#</a>
       </div>
       
     </div>
@@ -1211,10 +1271,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-65'>
+  <div class='section' id='section-68'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-65'>#</a>
+        <a class='octothorpe' href='#section-68'>#</a>
       </div>
       <p>Generates C-code which allows to work with the serialized blob data.</p>
     </div>
@@ -1223,10 +1283,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-66'>
+  <div class='section' id='section-69'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-66'>#</a>
+        <a class='octothorpe' href='#section-69'>#</a>
       </div>
       
     </div>
@@ -1235,10 +1295,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-67'>
+  <div class='section' id='section-70'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-67'>#</a>
+        <a class='octothorpe' href='#section-70'>#</a>
       </div>
       
     </div>
@@ -1296,10 +1356,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-68'>
+  <div class='section' id='section-71'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-68'>#</a>
+        <a class='octothorpe' href='#section-71'>#</a>
       </div>
       <p>check dependencies</p>
     </div>
@@ -1311,10 +1371,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-69'>
+  <div class='section' id='section-72'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-69'>#</a>
+        <a class='octothorpe' href='#section-72'>#</a>
       </div>
       <p>generate header</p>
     </div>
@@ -1324,10 +1384,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-70'>
+  <div class='section' id='section-73'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-70'>#</a>
+        <a class='octothorpe' href='#section-73'>#</a>
       </div>
       <p>ignore duplicates</p>
     </div>
@@ -1340,10 +1400,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-71'>
+  <div class='section' id='section-74'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-71'>#</a>
+        <a class='octothorpe' href='#section-74'>#</a>
       </div>
       <p>get interface</p>
     </div>
@@ -1352,10 +1412,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-72'>
+  <div class='section' id='section-75'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-72'>#</a>
+        <a class='octothorpe' href='#section-75'>#</a>
       </div>
       <p>add type definition</p>
     </div>
@@ -1371,10 +1431,10 @@ It contains classes which generate c structs and functions for access to blob_ty
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-73'>
+  <div class='section' id='section-76'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-73'>#</a>
+        <a class='octothorpe' href='#section-76'>#</a>
       </div>
       <p>add function definitions and declarations</p>
     </div>
