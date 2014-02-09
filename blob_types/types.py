@@ -427,16 +427,24 @@ class Blob(object):
         return numpy.dtype(dtype_components), subtypes
 
     @classmethod
-    def from_struct(cls, struct, blob, **kwargs):
+    def from_struct(cls, struct, blob=None, dtype=None, dtype_params=None, **kwargs):
         """Creates and initializes a object from a struct."""
+
+        # alloc blob if required
+        if blob is None:
+            if dtype_params is None:
+                dtype_params = cls.get_dtype_params_from_struct(struct=struct)
+            dtype, blob = cls.allocate_blob(dtype_params=dtype_params, dtype=dtype)
 
         assert blob.shape == (), 'the blob must be plain'
 
         if hasattr(cls, '_preprocess_struct'):
             struct = cls._preprocess_struct(struct, **kwargs)
 
-        self = cls(blob=blob, **kwargs)
+        # init object
+        self = cls(blob=blob, dtype=dtype, dtype_params=dtype_params, **kwargs)
 
+        # init fields
         assert hasattr(self, '_init_from_struct'), '%s requires an implementation of _init_from_struct' % cls
         self._init_from_struct(struct=flat_struct(struct), blob=blob)
 
@@ -460,6 +468,17 @@ class Blob(object):
             raise NotImplementedError()
 
         raise NotImplementedError()
+
+    @classmethod
+    def get_dtype_params_from_struct(cls, struct):
+
+        dtype_param_keys = cls.get_dtype_param_keys()
+        dtype_params = cls.get_dummy_dtype_params()
+
+        for key in dtype_param_keys:
+            raise NotImplementedError('unable to extraxt value for %s' % key)
+
+        return dtype_params
 
     @classmethod
     def get_dtype_params_from_blob(cls, blob):
@@ -904,21 +923,33 @@ class BlobArray(Blob):
             raise
 
     @classmethod
-    def from_struct(cls, struct, blob):
+    def from_struct(cls, struct, blob=None, dtype=None, dtype_params=None):
         """Creates and initializes a object from a struct."""
+
+        # alloc blob if required
+        if blob is None:
+            if dtype_params is None:
+                dtype_params = cls.get_dtype_params_from_struct(struct=struct)
+            dtype, blob = cls.allocate_blob(dtype_params=dtype_params, dtype=dtype)
 
         assert blob.shape == (), 'the blob must be plain'
 
         if hasattr(cls, '_preprocess_struct'):
             struct = cls._preprocess_struct(struct)
 
+        # init and add items
+        child_dtype = None
         items = []
         for index, child_struct in enumerate(struct):
-            child_blob = cls.get_item_blob(blob, index, child_dtype=None)
-            child = cls.child_type.from_struct(struct=child_struct, blob=child_blob)
+            if child_dtype is None:
+                child_dtype = cls.child_type.dtype
+
+            child_blob = cls.get_item_blob(blob, index, child_dtype=child_dtype)
+            child = cls.child_type.from_struct(struct=child_struct, blob=child_blob, dtype=child_dtype)
             items.append(child)
 
-        self = cls(blob, items=items)
+        # init object
+        self = cls(blob, dtype=dtype, dtype_params=dtype_params, items=items)
 
         return self
 
