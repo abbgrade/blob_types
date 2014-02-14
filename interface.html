@@ -897,9 +897,13 @@ It contains classes which generate c structs and functions for access to blob_ty
 
         <span class="n">field_chain</span> <span class="o">=</span> <span class="p">[</span><span class="n">field</span><span class="p">]</span>
         <span class="n">current_dtype</span> <span class="o">=</span> <span class="n">dtype</span>
-        <span class="k">while</span> <span class="ow">not</span> <span class="n">numpy</span><span class="o">.</span><span class="n">issctype</span><span class="p">(</span><span class="n">current_dtype</span><span class="p">):</span>
-            <span class="n">subfield</span><span class="p">,</span> <span class="n">current_dtype</span> <span class="o">=</span> <span class="n">current_dtype</span><span class="o">.</span><span class="n">subtypes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">field_chain</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subfield</span><span class="p">)</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="n">numpy</span><span class="o">.</span><span class="n">issctype</span><span class="p">(</span><span class="n">current_dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">current_dtype</span><span class="p">,</span> <span class="n">BlobEnum</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">subfield</span><span class="p">,</span> <span class="n">current_dtype</span> <span class="o">=</span> <span class="n">current_dtype</span><span class="o">.</span><span class="n">subtypes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">field_chain</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subfield</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ex</span>
 
         <span class="n">declaration</span> <span class="o">=</span> \
 <span class="sd">&#39;&#39;&#39;</span>
