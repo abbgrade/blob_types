@@ -686,16 +686,16 @@ class Blob(object):
         else:
             return object.__getattribute__(self, name)
 
-    def __json__(self):
+    def _repr_json_(self):
         values = '{\n'
         for field, subtype in self.subtypes:
             if type(subtype) == type and issubclass(subtype, Blob):
                 if issubclass(subtype, BlobEnum):
-                    values += '%s: "%s",\n' % (field, subtype.int_to_string(getattr(self, field), ignore_errors=True))
+                    values += '"%s": "%s",\n' % (field, subtype.int_to_string(getattr(self, field), ignore_errors=True))
                 else:
-                    values += '%s: %s,\n' % (field, getattr(self, field).__json__())
+                    values += '"%s": %s,\n' % (field, getattr(self, field)._repr_json_())
             else:
-                values += '%s: %s,\n' % (field, getattr(self, field))
+                values += '"%s": %s,\n' % (field, getattr(self, field))
         values += '}'
 
         return values
@@ -1001,12 +1001,6 @@ class BlobArray(Blob):
     def __init__(self, blob=None, dtype=None, dtype_params=None, items=None, capacity=None):
         cls = type(self)
 
-        if blob is None:
-            dtype, blob = cls.allocate_blob(dtype_params=dtype_params, dtype=dtype)
-
-        if dtype is None:
-            dtype = blob.dtype
-
         if items is None:
             items = []
 
@@ -1015,6 +1009,15 @@ class BlobArray(Blob):
 
         if capacity is None:
             capacity = len(items)
+
+        if blob is None:
+            if dtype_params is None and cls.child_type.is_plain() and capacity is not None:
+                dtype_params = {cls.CAPACITY_FIELD: capacity}
+
+            dtype, blob = cls.allocate_blob(dtype_params=dtype_params, dtype=dtype)
+
+        if dtype is None:
+            dtype = blob.dtype
 
         assert capacity > 0, '%s: an empty list? use java for that!' % cls
         assert blob.shape == ()

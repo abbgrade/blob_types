@@ -2,6 +2,7 @@
 ... is a submodule of [blob_types](__init__.html).
 It contains helper functions.
 """
+import os
 
 implode_float_n = False
 
@@ -18,14 +19,12 @@ def camel_case_to_underscore(name):
 
     return ''.join(new_name)
 
-
 def underscore_to_camel_case(name):
     """Convert a underscore_string into a CamelCaseString."""
 
     name = ''.join(map(lambda part: part.capitalize(), name.split('_')))
     name = name[0].lower() + name[1:]
     return name
-
 
 def flat_struct(struct):
     """Copy a struct, which contains all values but without nesting dicts of lists.
@@ -132,7 +131,6 @@ def get_blob_index(dtype, name):
         if field_name == name:
             return index
 
-
 def dtype_to_lines(dtype):
     return str(dtype).replace('), (', ')\n(').split('\n')
 
@@ -236,3 +234,12 @@ def diff_dtype(a, b):
 
 def diff_blob(a, b):
     return a.__diff__(b)
+
+def src_path(root, path):
+    if path.startswith('.'):
+        path_list = os.path.dirname(root).split(os.sep)
+        path_list.extend(path.split('/'))
+        return os.sep.join(path_list)
+
+    else:
+        return path

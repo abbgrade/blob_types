@@ -397,9 +397,13 @@ typedef struct __attribute__((__packed__)) _%(cname)s
 
         field_chain = [field]
         current_dtype = dtype
-        while not numpy.issctype(current_dtype):
-            subfield, current_dtype = current_dtype.subtypes[0]
-            field_chain.append(subfield)
+        while not numpy.issctype(current_dtype) and not issubclass(current_dtype, BlobEnum):
+            try:
+                subfield, current_dtype = current_dtype.subtypes[0]
+                field_chain.append(subfield)
+
+            except Exception as ex:
+                raise ex
 
         declaration = \
 '''
