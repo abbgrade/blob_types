@@ -1189,6 +1189,9 @@ class BlobEnum(Blob):
 
     @classmethod
     def string_to_int(cls, string):
+        if string not in cls.to_int_map.keys() and string in cls.alternatives.keys():
+            string = cls.alternatives[string]
+
         return cls.to_int_map[string]
 
     @classmethod
