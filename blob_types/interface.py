@@ -274,6 +274,9 @@ class BlobPlainInterface(BlobInterface):
 
         return zip(*functions)
 
+    def get_address_space_suffix(self, address_space_qualifier):
+        return ''
+
     def get_type(self, address_space_qualifier):
         """Returns the c99 declaration of the type."""
 
