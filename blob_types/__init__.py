@@ -8,7 +8,7 @@ The [blob_types](https://github.com/abbgrade/blob_types) package is structured i
 
 __author__ = 'Steffen Kampmann'
 __email__ = 'steffen.kampmann@gmail.com'
-__version__ = '0.15'
+__version__ = '0.16'
 __license__ = 'GPL 2'
 
 import utils

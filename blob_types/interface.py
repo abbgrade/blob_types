@@ -19,10 +19,10 @@ class BlobInterface(object):
     def get_functions(self, address_space_qualifier):
         raise NotImplementedError('abstract get_cfunctions %s' % type(self))
 
-    def get_address_space_suffix(self, address_space_qualifier):
+    def get_address_space_suffix(self, address_space_qualifier, force_address_space=True):
         return address_space_qualifier[0]
 
-    def get_name(self, address_space_qualifier, clean=False):
+    def get_name(self, address_space_qualifier, clean=False, force_address_space=False):
         """Returns the type name in c99-style including a address space qualifier (local, constant, global, private)."""
 
         cname = camel_case_to_underscore(self.blob_type.__name__)
@@ -31,17 +31,17 @@ class BlobInterface(object):
             return cname
 
         else:
-            cname = '%s_%st' % (cname, self.get_address_space_suffix(address_space_qualifier))
+            cname = '%s_%st' % (cname, self.get_address_space_suffix(address_space_qualifier, force_address_space))
             return cname
 
     def get_spaced_name(self, address_space_qualifier):
 
         return '%s %s' % (address_space_qualifier, self.get_name(address_space_qualifier))
 
-    def get_sizeof_name(self, address_space_qualifier):
+    def get_sizeof_name(self, address_space_qualifier, force_address_space=False):
         """Returns the c99 function name of the sizeof function."""
 
-        return 'sizeof_%s' % self.get_name(address_space_qualifier)
+        return 'sizeof_%s' % self.get_name(address_space_qualifier, force_address_space=force_address_space)
 
     def get_deserialize_name(self, address_space_qualifier):
         """Returns the function name of the c99 deserializer function."""
@@ -274,8 +274,16 @@ class BlobPlainInterface(BlobInterface):
 
         return zip(*functions)
 
-    def get_address_space_suffix(self, address_space_qualifier):
-        return ''
+    def get_address_space_suffix(self, address_space_qualifier, force_address_space):
+        if force_address_space:
+            return BlobInterface.get_address_space_suffix(
+                self,
+                address_space_qualifier,
+                force_address_space=force_address_space
+            )
+
+        else:
+            return ''
 
     def get_type(self, address_space_qualifier):
         """Returns the c99 declaration of the type."""
@@ -301,6 +309,11 @@ typedef struct __attribute__((__packed__)) _%(cname)s
 }
         return definition.strip()
 
+    def get_sizeof_name(self, address_space_qualifier):
+        """Returns the c99 function name of the accessor function."""
+
+        return BlobInterface.get_sizeof_name(self, address_space_qualifier, force_address_space=True)
+
     def get_sizeof(self, address_space_qualifier):
         """Creates a c99 sizeof method."""
 
@@ -324,7 +337,7 @@ typedef struct __attribute__((__packed__)) _%(cname)s
     def get_copy_name(self, address_space_qualifier):
         """Returns the c99 function name of the accessor function."""
 
-        return 'copy_%s' % (self.get_name(address_space_qualifier))
+        return 'copy_%s' % (self.get_name(address_space_qualifier, force_address_space=True))
 
     def get_copy(self, address_space_qualifier):
 
@@ -352,7 +365,7 @@ typedef struct __attribute__((__packed__)) _%(cname)s
     def get_accessor_name(self, field, address_space_qualifier):
         """Returns the c99 function name of the accessor function."""
 
-        return 'get_%s_%s' % (self.get_name(address_space_qualifier), field)
+        return 'get_%s_%s' % (self.get_name(address_space_qualifier, force_address_space=True), field)
 
     def get_accessor(self, field, dtype, address_space_qualifier):
 
@@ -697,10 +710,17 @@ class BlobLib(FileLib):
             function_declarations_code
         ])
 
-    def _init_definitons_and_declarations(self, required_constant_blob_types, required_global_blob_types):
+    def _init_definitons_and_declarations(
+            self,
+            required_private_blob_types,
+            required_constant_blob_types,
+            required_global_blob_types
+    ):
+
         for address_space_qualifier, required_blob_types in [
+            ('private', required_private_blob_types),
             ('constant', required_constant_blob_types),
-            ('global', required_global_blob_types)
+            ('global', required_global_blob_types),
         ]:
             # check dependencies
             blob_types = []
@@ -742,6 +762,7 @@ class BlobLib(FileLib):
     def __init__(
             self,
             device=None,
+            required_private_blob_types=None,
             required_constant_blob_types=None,
             required_global_blob_types=None,
             header_header='',
@@ -758,10 +779,17 @@ class BlobLib(FileLib):
         if device is None:
             device = opencl.create_some_context(False).get_info(opencl.context_info.DEVICES)[0]
 
+        if required_private_blob_types is None:
+            required_private_blob_types = []
+
         if required_constant_blob_types is None:
             required_constant_blob_types = []
 
         if required_global_blob_types is None:
             required_global_blob_types = []
 
-        self._init_definitons_and_declarations(required_constant_blob_types, required_global_blob_types)
+        self._init_definitons_and_declarations(
+            required_private_blob_types,
+            required_constant_blob_types,
+            required_global_blob_types
+        )
