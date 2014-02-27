@@ -6,10 +6,10 @@ It contains classes which generate c structs and functions for access to blob_ty
 import numpy
 import pyopencl as opencl
 from pyopencl.compyte.dtypes import dtype_to_ctype
+import os
 
 from types import Blob, BlobArray, BlobEnum
 from utils import camel_case_to_underscore, implode_floatn, implode_float_n
-
 
 class BlobInterface(object):
     def __init__(self, blob_type):
@@ -619,15 +619,20 @@ class Lib(object):
 
 class FileLib(Lib):
 
-    def __init__(self, dependencies=[], code_path=None):
+    def __init__(self, dependencies=[], root=None, path=None):
         Lib.__init__(
             self,
             dependencies=dependencies,
         )
 
-        if code_path:
-            self.header_code_path = '%s.h' % code_path
-            self.source_code_path = '%s.cl' % code_path
+        if root and path:
+            header_path = [root, 'include']
+            header_path.extend(path)
+            self.header_code_path = os.path.join(*header_path) + '.h'
+
+            source_path = [root, 'src']
+            source_path.extend(path)
+            self.source_code_path = os.path.join(*source_path) + '.cl'
 
         else:
             self.header_code_path = None
