@@ -23,6 +23,7 @@ It contains abstract classes which help to build serializable data structures.</
     <div class='code'>
       <div class="highlight"><pre><span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">import</span> <span class="nn">json</span>
 
 <span class="kn">from</span> <span class="nn">utils</span> <span class="kn">import</span> <span class="n">flat_struct</span><span class="p">,</span> <span class="n">camel_case_to_underscore</span><span class="p">,</span> <span class="n">underscore_to_camel_case</span><span class="p">,</span> <span class="n">get_blob_index</span><span class="p">,</span> <span class="n">diff_dtype</span><span class="p">,</span> <span class="n">vector_fields</span><span class="p">,</span> <span class="n">implode_float_n</span></pre></div>
     </div>
@@ -1094,18 +1095,23 @@ subtypes    # the class definition of nested Blob-types
     </div>
     <div class='code'>
       <div class="highlight"><pre>    <span class="k">def</span> <span class="nf">_repr_json_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">values</span> <span class="o">=</span> <span class="s">&#39;{</span><span class="se">\n</span><span class="s">&#39;</span>
+
+        <span class="n">fields</span> <span class="o">=</span> <span class="p">[]</span>
+
         <span class="k">for</span> <span class="n">field</span><span class="p">,</span> <span class="n">subtype</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subtypes</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">subtype</span><span class="p">)</span> <span class="o">==</span> <span class="nb">type</span> <span class="ow">and</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">subtype</span><span class="p">,</span> <span class="n">Blob</span><span class="p">):</span>
                 <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">subtype</span><span class="p">,</span> <span class="n">BlobEnum</span><span class="p">):</span>
-                    <span class="n">values</span> <span class="o">+=</span> <span class="s">&#39;&quot;</span><span class="si">%s</span><span class="s">&quot;: &quot;</span><span class="si">%s</span><span class="s">&quot;,</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">subtype</span><span class="o">.</span><span class="n">int_to_string</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">),</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">values</span> <span class="o">+=</span> <span class="s">&#39;&quot;</span><span class="si">%s</span><span class="s">&quot;: </span><span class="si">%s</span><span class="s">,</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span><span class="o">.</span><span class="n">_repr_json_</span><span class="p">())</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">values</span> <span class="o">+=</span> <span class="s">&#39;&quot;</span><span class="si">%s</span><span class="s">&quot;: </span><span class="si">%s</span><span class="s">,</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">))</span>
-        <span class="n">values</span> <span class="o">+=</span> <span class="s">&#39;}&#39;</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="s">&#39;&quot;</span><span class="si">%s</span><span class="s">&quot;&#39;</span> <span class="o">%</span> <span class="n">subtype</span><span class="o">.</span><span class="n">int_to_string</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">),</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">values</span></pre></div>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span><span class="o">.</span><span class="n">_repr_json_</span><span class="p">()</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+
+            <span class="n">fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;&quot;</span><span class="si">%s</span><span class="s">&quot;: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s">&#39;{</span><span class="si">%s</span><span class="s">}&#39;</span> <span class="o">%</span> <span class="s">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fields</span><span class="p">)),</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span></pre></div>
     </div>
   </div>
   <div class='clearall'></div>
@@ -2039,7 +2045,7 @@ It generates a (dummy) c99 struct declaration as well as a deserializer function
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">string_to_int</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">string</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cls</span><span class="o">.</span><span class="n">to_int_map</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="n">string</span> <span class="ow">in</span> <span class="n">cls</span><span class="o">.</span><span class="n">alternatives</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">string</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cls</span><span class="o">.</span><span class="n">to_int_map</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="s">&#39;alternatives&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">string</span> <span class="ow">in</span> <span class="n">cls</span><span class="o">.</span><span class="n">alternatives</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">string</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">alternatives</span><span class="p">[</span><span class="n">string</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">to_int_map</span><span class="p">[</span><span class="n">string</span><span class="p">]</span>
