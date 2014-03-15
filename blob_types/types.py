@@ -5,6 +5,7 @@ It contains abstract classes which help to build serializable data structures.
 
 import logging
 import numpy
+import json
 
 from utils import flat_struct, camel_case_to_underscore, underscore_to_camel_case, get_blob_index, diff_dtype, vector_fields, implode_float_n
 
@@ -687,18 +688,23 @@ class Blob(object):
             return object.__getattribute__(self, name)
 
     def _repr_json_(self):
-        values = '{\n'
+
+        fields = []
+
         for field, subtype in self.subtypes:
             if type(subtype) == type and issubclass(subtype, Blob):
                 if issubclass(subtype, BlobEnum):
-                    values += '"%s": "%s",\n' % (field, subtype.int_to_string(getattr(self, field), ignore_errors=True))
-                else:
-                    values += '"%s": %s,\n' % (field, getattr(self, field)._repr_json_())
-            else:
-                values += '"%s": %s,\n' % (field, getattr(self, field))
-        values += '}'
+                    value = '"%s"' % subtype.int_to_string(getattr(self, field), ignore_errors=True)
 
-        return values
+                else:
+                    value = '%s' % getattr(self, field)._repr_json_()
+
+            else:
+                value = '%s' % getattr(self, field)
+
+            fields.append('"%s": %s' % (field, value))
+
+        return json.dumps(json.loads('{%s}' % ','.join(fields)), indent=2)
 
     def to_struct(self):
         """Generates a struct from the blob data.
@@ -1189,7 +1195,7 @@ class BlobEnum(Blob):
 
     @classmethod
     def string_to_int(cls, string):
-        if string not in cls.to_int_map.keys() and string in cls.alternatives.keys():
+        if string not in cls.to_int_map.keys() and hasattr(cls, 'alternatives') and string in cls.alternatives.keys():
             string = cls.alternatives[string]
 
         return cls.to_int_map[string]

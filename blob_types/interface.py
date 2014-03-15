@@ -4,8 +4,8 @@ It contains classes which generate c structs and functions for access to blob_ty
 """
 
 import numpy
-import pyopencl as opencl
-from pyopencl.compyte.dtypes import dtype_to_ctype
+import pyopencl
+from pyopencl.compyte.dtypes import dtype_to_ctype, NAME_TO_DTYPE, DTYPE_TO_NAME
 import os
 
 from types import Blob, BlobArray, BlobEnum
@@ -20,7 +20,7 @@ class BlobInterface(object):
         raise NotImplementedError('abstract get_cfunctions %s' % type(self))
 
     def get_address_space_suffix(self, address_space_qualifier, force_address_space=True):
-        return address_space_qualifier[0]
+        return address_space_qualifier[2]
 
     def get_name(self, address_space_qualifier, clean=False, force_address_space=False):
         """Returns the type name in c99-style including a address space qualifier (local, constant, global, private)."""
@@ -299,13 +299,16 @@ class BlobPlainInterface(BlobInterface):
 '''
 /* plain type %(cname)s */
 
-typedef struct __attribute__((__packed__)) _%(cname)s
+typedef struct __attribute__((__packed__)) %(cname)s
 {
 %(fields)s
 } %(cname)s;
+
+#define %(define)s
 ''' % {
     'fields': field_definitions,
-    'cname': self.get_name(address_space_qualifier)
+    'cname': self.get_name(address_space_qualifier),
+    'define': self.get_name(address_space_qualifier).upper()
 }
         return definition.strip()
 
@@ -347,7 +350,9 @@ typedef struct __attribute__((__packed__)) _%(cname)s
             'address_space_qualifier': address_space_qualifier
         }
 
-        lines = []
+        lines = [
+            '\tif(destination == 0 || source == 0) return;'
+        ]
         for field in self.blob_type.dtype.names:
             lines.append('\tdestination->%(field)s = source->%(field)s;' % {'field': field})
 
@@ -371,7 +376,7 @@ typedef struct __attribute__((__packed__)) _%(cname)s
 
         child_name = BlobLib.get_interface(dtype).get_spaced_name(address_space_qualifier)
 
-        definition = '%(child_name)s * %(function_name)s(%(address_space_qualifier)s %(cname)s* self)' % {
+        definition = '%(child_name)s* %(function_name)s(%(address_space_qualifier)s %(cname)s* self)' % {
             'function_name': self.get_accessor_name(field, address_space_qualifier),
             'cname': self.get_name(address_space_qualifier),
             'child_name': child_name,
@@ -643,7 +648,7 @@ class FileLib(Lib):
 
         if self.header_code_path:
             with open(self.header_code_path) as file_handle:
-                header_code += '\n\n' + file_handle.read()
+                header_code += '\n\n// ' + self.header_code_path + '\n' + file_handle.read()
 
         return header_code
 
@@ -652,7 +657,7 @@ class FileLib(Lib):
 
         if self.source_code_path:
             with open(self.source_code_path) as file_handle:
-                source_code += '\n\n' + file_handle.read()
+                source_code += '\n\n// ' + self.source_code_path + '\n' + file_handle.read()
 
         return source_code
 
@@ -723,9 +728,9 @@ class BlobLib(FileLib):
     ):
 
         for address_space_qualifier, required_blob_types in [
-            ('private', required_private_blob_types),
-            ('constant', required_constant_blob_types),
-            ('global', required_global_blob_types),
+            ('__private', required_private_blob_types),
+            ('__constant', required_constant_blob_types),
+            ('__global', required_global_blob_types),
         ]:
             # check dependencies
             blob_types = []
@@ -757,6 +762,21 @@ class BlobLib(FileLib):
 
                 self.type_definitions.append(type_definition)
 
+                # register type
+                if blob_type.is_plain():
+
+                    c_name = blob_type_interface.get_name(address_space_qualifier=address_space_qualifier)
+                    dtype = blob_type.dtype
+
+                    # unregister dtype, for the case, that it differ
+                    if dtype in DTYPE_TO_NAME:
+                        DTYPE_TO_NAME.pop(dtype)
+
+                    if c_name in NAME_TO_DTYPE:
+                        NAME_TO_DTYPE.pop(c_name)
+
+                    pyopencl.tools.get_or_register_dtype(c_name, dtype)
+
                 # add function definitions and declarations
                 function_definitions, function_declarations = blob_type_interface.get_functions(
                     address_space_qualifier=address_space_qualifier
@@ -782,7 +802,7 @@ class BlobLib(FileLib):
         self.header_footer = header_footer
 
         if device is None:
-            device = opencl.create_some_context(False).get_info(opencl.context_info.DEVICES)[0]
+            device = pyopencl.create_some_context(False).get_info(pyopencl.context_info.DEVICES)[0]
 
         if required_private_blob_types is None:
             required_private_blob_types = []
@@ -798,3 +818,5 @@ class BlobLib(FileLib):
             required_constant_blob_types,
             required_global_blob_types
         )
+
+
